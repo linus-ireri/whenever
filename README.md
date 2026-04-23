@@ -1,4 +1,4 @@
-# whenever — AI-Powered Event Planner
+# whenever - AI-Powered Event Planner
 
 > A smart personal scheduler that lets you add events in plain English, auto-categorizes them, and acts on your behalf — like a real assistant.
 
