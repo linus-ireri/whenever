@@ -216,6 +216,23 @@ export default function Dashboard() {
       font-weight: 500;
     }
 
+    .sidebar-mobile-logout {
+      width: auto;
+      padding: 8px 12px;
+      border: 1px solid ${theme === 'dark' ? '#E8C547' : '#8a6f12'};
+      background: ${theme === 'dark' ? '#18150a' : '#efe7ce'};
+      color: ${themeVars.pageText};
+      font-weight: 600;
+    }
+
+    .sidebar-mobile-logout:hover {
+      border-color: ${themeVars.accent};
+      background: ${theme === 'dark' ? '#221d0c' : '#e7ddbd'};
+      color: ${themeVars.pageText};
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
     .add-btn {
       width: 100%;
       padding: 13px;
@@ -753,10 +770,11 @@ export default function Dashboard() {
                 }}
                 style={{
                   padding: '10px 20px',
-                  border: 'none',
+                  border: '1px solid #f8b4b4',
                   background: '#f07070',
                   color: '#fff',
                   borderRadius: '8px',
+                  fontWeight: '600',
                   cursor: 'pointer'
                 }}
               >
