@@ -320,21 +320,17 @@ export default function Dashboard() {
   const greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
 
   return (
-    <div style={{ minHeight: '100vh', background: themeVars.pageBg, color: themeVars.pageText, display: 'flex' }}>
+    <div className="dashboard-root" style={{ minHeight: '100vh', background: themeVars.pageBg, color: themeVars.pageText }}>
       <style>{placeholderStyle}</style>
 
       {/* Sidebar */}
-      <aside style={{
-        width: '260px',
+      <aside className="dashboard-sidebar" style={{
         background: themeVars.sidebarBg,
         borderRight: `1px solid ${themeVars.sidebarBorder}`,
         padding: '32px 16px',
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        position: 'sticky',
-        top: 0,
-        height: '100vh',
         overflowY: 'auto',
         flexShrink: 0
       }}>
@@ -474,7 +470,7 @@ export default function Dashboard() {
       </aside>
 
       {/* Main content */}
-      <main style={{ flex: 1, padding: '48px', maxWidth: '860px', overflowY: 'auto' }}>
+      <main className="dashboard-main" style={{ flex: 1, padding: '48px', overflowY: 'auto' }}>
 
         {/* Header */}
         <div style={{ marginBottom: '36px' }}>
@@ -494,7 +490,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '36px' }}>
+        <div className="stats-row" style={{ marginBottom: '36px' }}>
           {[
             { num: events.filter(e => e.date === new Date().toISOString().split('T')[0]).length, label: 'Today' },
             { num: events.length, label: 'Total' },
@@ -561,7 +557,7 @@ export default function Dashboard() {
                       }}
                     />
                   </div>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <div className="responsive-row" style={{ marginBottom: '10px' }}>
                     <select
                       value={editingEvent.category}
                       onChange={(e) => setEditingEvent({ ...editingEvent, category: e.target.value })}
@@ -601,7 +597,7 @@ export default function Dashboard() {
                       }}
                     />
                   </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div className="responsive-row" style={{ gap: '8px' }}>
                     <button type="button" onClick={updateEvent} disabled={savingEdit} style={{
                       padding: '8px 20px',
                       background: themeVars.actionBg, color: themeVars.actionText,
@@ -627,7 +623,7 @@ export default function Dashboard() {
 
               ) : (
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div className="event-card-header">
                   <div style={{
                     width: '3px', height: '44px',
                     borderRadius: '2px', background: cat.color, flexShrink: 0
@@ -748,7 +744,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
   }
 
   return (
-    <div style={{
+    <div className="add-event-section" style={{
       marginTop: '48px',
       borderTop: `1px solid ${themeVars.surfaceBorder}`,
       paddingTop: '36px'
@@ -795,7 +791,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
           </select>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+        <div className="responsive-row form-row" style={{ marginBottom: '20px' }}>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Date</label>
             <input

@@ -29,3 +29,120 @@ input, select, button {
   background: #333;
   border-radius: 2px;
 }
+
+.dashboard-root {
+  display: flex;
+  min-height: 100vh;
+}
+
+.dashboard-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.dashboard-main {
+  flex: 1;
+  padding: 48px;
+  min-width: 0;
+}
+
+.stats-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stats-row > div {
+  flex: 1 1 180px;
+  min-width: 180px;
+}
+
+.event-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.responsive-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.responsive-row > * {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+
+.form-row {
+  gap: 12px;
+}
+
+.add-event-section {
+  margin-top: 48px;
+  border-top: 1px solid transparent;
+  padding-top: 36px;
+}
+
+@media (max-width: 980px) {
+  .dashboard-root {
+    flex-direction: column;
+  }
+
+  .dashboard-sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    border-right: none;
+    border-bottom: 1px solid #2a2a30;
+    padding: 24px 16px;
+  }
+
+  .dashboard-main {
+    padding: 32px;
+  }
+
+  .stats-row > div {
+    min-width: 160px;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-sidebar {
+    padding: 20px 16px;
+  }
+
+  .dashboard-main {
+    padding: 24px 16px;
+  }
+
+  .stats-row {
+    gap: 10px;
+  }
+
+  .stats-row > div {
+    min-width: 140px;
+  }
+
+  .responsive-row {
+    gap: 10px;
+  }
+
+  .dashboard-sidebar .filter-btn {
+    justify-content: space-between;
+  }
+
+  .event-card-header {
+    gap: 12px;
+  }
+
+  .event-card .icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+}
