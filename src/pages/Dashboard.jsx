@@ -113,6 +113,7 @@ export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState('all')
   const [theme, setTheme] = useState('light')
   const [expandCategories, setExpandCategories] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
   const themeVars = THEME_PALETTES[theme]
   const themedInputStyle = {
     ...baseInputStyle,
@@ -199,12 +200,14 @@ export default function Dashboard() {
       font-weight: 400;
       text-align: left;
       width: 100%;
-      transition: all 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .filter-btn:hover {
       background: ${themeVars.filterActive};
       color: ${themeVars.mutedSoft};
+      transform: translateY(-2px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
     .filter-btn.active {
@@ -313,8 +316,7 @@ export default function Dashboard() {
   }
 
   async function confirmLogout() {
-    const confirmation = window.confirm(`Log out ${user.email} from whenever?`)
-    if (confirmation) await handleLogout()
+    setShowLogoutModal(true)
   }
 
   const filtered = activeFilter === 'all'
@@ -332,6 +334,8 @@ export default function Dashboard() {
       <aside className="dashboard-sidebar" style={{
         background: themeVars.sidebarBg,
         '--sidebar-border': themeVars.sidebarBorder,
+        '--page-text': themeVars.pageText,
+        '--surface-border': themeVars.surfaceBorder,
         borderRight: '1px solid var(--sidebar-border)',
         padding: '32px 16px',
         display: 'flex',
@@ -366,20 +370,12 @@ export default function Dashboard() {
           <button
             className="filter-btn sidebar-mobile-logout"
             onClick={confirmLogout}
-            style={{
-              justifyContent: 'center',
-              background: 'transparent',
-              color: themeVars.pageText,
-              border: `1px solid ${themeVars.surfaceBorder}`,
-              padding: '12px 16px',
-              fontSize: '13px'
-            }}
           >
             Log out
           </button>
         </div>
         <button
-          className="filter-btn"
+          className="filter-btn theme-switch-btn"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           style={{
             marginBottom: '18px',
@@ -697,6 +693,79 @@ export default function Dashboard() {
         {/* Add Event Form */}
         <AddEventForm onEventAdded={fetchEvents} userId={user.id} themeVars={themeVars} />
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="logout-modal-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div className="logout-modal" style={{
+            background: themeVars.surface,
+            border: `1px solid ${themeVars.surfaceBorder}`,
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '90%',
+            textAlign: 'center'
+          }}>
+            <h3 style={{
+              fontFamily: 'Instrument Serif, serif',
+              fontSize: '20px',
+              marginBottom: '12px',
+              color: themeVars.pageText
+            }}>
+              Log out from whenever?
+            </h3>
+            <p style={{
+              color: themeVars.muted,
+              fontSize: '14px',
+              marginBottom: '24px'
+            }}>
+              You'll need to sign in again to access your events.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  border: `1px solid ${themeVars.surfaceBorder}`,
+                  background: 'transparent',
+                  color: themeVars.pageText,
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setShowLogoutModal(false)
+                  await handleLogout()
+                }}
+                style={{
+                  padding: '10px 20px',
+                  border: 'none',
+                  background: '#f07070',
+                  color: '#fff',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              >
+                Log out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
