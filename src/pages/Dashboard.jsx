@@ -300,8 +300,6 @@ export default function Dashboard() {
   async function updateEvent(e) {
     e.preventDefault()
     setSavingEdit(true)
-    console.log('updateEvent called with:', editingEvent)
-    console.log('Current user:', user)
 
     // Validate required fields
     if (!editingEvent.title?.trim() || !editingEvent.date || !editingEvent.time) {
@@ -311,8 +309,7 @@ export default function Dashboard() {
     }
 
     try {
-      console.log('Attempting to update event in database...')
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from('events')
         .update({
           title: editingEvent.title.trim(),
@@ -323,15 +320,12 @@ export default function Dashboard() {
         .eq('id', editingEvent.id)
         .eq('user_id', user.id) // Ensure user can only update their own events
 
-      console.log('Update result:', { error, data })
-
       if (error) {
         console.error('Error updating event:', error)
         alert(`Failed to update event: ${error.message}`)
         return
       }
 
-      console.log('Event updated successfully')
       // Update local state
       setEvents(events.map(ev => ev.id === editingEvent.id ? editingEvent : ev))
       setEditingEvent(null)
@@ -816,7 +810,6 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    console.log('AddEventForm handleSubmit called')
     setLoading(true)
     setMessage('')
 
@@ -839,10 +832,8 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
       }])
 
     if (error) {
-      console.log('AddEventForm error:', error)
       setMessage('Something went wrong, try again')
     } else {
-      console.log('AddEventForm success: new event created')
       setMessage('Event added!')
       setTitle('')
       setCategory('')
@@ -877,6 +868,17 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
     textTransform: 'uppercase',
     letterSpacing: '0.1em'
   }
+  const getConfirmButtonStyle = (isSet, canConfirm) => ({
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: `1px solid ${themeVars.accent}`,
+    background: isSet ? themeVars.accent : 'transparent',
+    color: isSet ? themeVars.accentText : themeVars.accent,
+    fontSize: '12px',
+    fontWeight: '600',
+    cursor: canConfirm ? 'pointer' : 'not-allowed',
+    opacity: canConfirm ? 1 : 0.6
+  })
 
   return (
     <div className="add-event-section" style={{
@@ -948,17 +950,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
                 type="button"
                 onClick={() => setDate(dateDraft)}
                 disabled={!dateDraft}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: `1px solid ${themeVars.accent}`,
-                  background: date ? themeVars.accent : 'transparent',
-                  color: date ? themeVars.accentText : themeVars.accent,
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: dateDraft ? 'pointer' : 'not-allowed',
-                  opacity: dateDraft ? 1 : 0.6
-                }}
+                style={getConfirmButtonStyle(!!date, !!dateDraft)}
               >
                 {date ? 'Date set' : 'OK'}
               </button>
@@ -1004,17 +996,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
                 type="button"
                 onClick={() => setTime(timeDraft)}
                 disabled={!timeDraft}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '8px',
-                  border: `1px solid ${themeVars.accent}`,
-                  background: time ? themeVars.accent : 'transparent',
-                  color: time ? themeVars.accentText : themeVars.accent,
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  cursor: timeDraft ? 'pointer' : 'not-allowed',
-                  opacity: timeDraft ? 1 : 0.6
-                }}
+                style={getConfirmButtonStyle(!!time, !!timeDraft)}
               >
                 {time ? 'Time set' : 'OK'}
               </button>
