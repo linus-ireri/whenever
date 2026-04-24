@@ -274,6 +274,16 @@ export default function Dashboard() {
       transform: none;
     }
 
+    .confirm-btn {
+      transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+    }
+
+    .confirm-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+      filter: brightness(1.05);
+    }
+
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-track { background: ${themeVars.scrollTrack}; }
     ::-webkit-scrollbar-thumb { background: ${themeVars.scrollThumb}; border-radius: 2px; }
@@ -868,16 +878,28 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
     textTransform: 'uppercase',
     letterSpacing: '0.1em'
   }
+  const isLightMode = themeVars.pageBg === '#f5f2eb'
   const getConfirmButtonStyle = (isSet, canConfirm) => ({
     padding: '6px 12px',
     borderRadius: '8px',
-    border: `1px solid ${themeVars.accent}`,
-    background: isSet ? themeVars.accent : 'transparent',
-    color: isSet ? themeVars.accentText : themeVars.accent,
+    border: `1px solid ${isLightMode ? '#7a6110' : themeVars.accent}`,
+    background: isSet
+      ? (isLightMode ? '#7a6110' : themeVars.accent)
+      : (isLightMode ? '#fff8e1' : 'transparent'),
+    color: isSet
+      ? (isLightMode ? '#ffffff' : themeVars.accentText)
+      : (isLightMode ? '#5b470b' : themeVars.accent),
     fontSize: '12px',
-    fontWeight: '600',
+    fontWeight: isLightMode ? '700' : '600',
     cursor: canConfirm ? 'pointer' : 'not-allowed',
     opacity: canConfirm ? 1 : 0.6
+  })
+  const getResetButtonStyle = (canReset) => ({
+    ...getConfirmButtonStyle(false, canReset),
+    border: `1px solid ${isLightMode ? '#6e5811' : themeVars.accent}`,
+    background: isLightMode ? '#f0e0aa' : themeVars.filterActive,
+    color: isLightMode ? '#3d2f08' : themeVars.pageText,
+    fontWeight: '700'
   })
 
   return (
@@ -947,6 +969,22 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
+                className="confirm-btn"
+                type="button"
+                onClick={() => {
+                  setDateDraft('')
+                  setDate('')
+                }}
+                disabled={!dateDraft && !date}
+                style={{
+                  ...getResetButtonStyle(!!dateDraft || !!date),
+                  marginRight: '8px'
+                }}
+              >
+                Reset
+              </button>
+              <button
+                className="confirm-btn"
                 type="button"
                 onClick={() => setDate(dateDraft)}
                 disabled={!dateDraft}
@@ -993,6 +1031,22 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
+                className="confirm-btn"
+                type="button"
+                onClick={() => {
+                  setTimeDraft('')
+                  setTime('')
+                }}
+                disabled={!timeDraft && !time}
+                style={{
+                  ...getResetButtonStyle(!!timeDraft || !!time),
+                  marginRight: '8px'
+                }}
+              >
+                Reset
+              </button>
+              <button
+                className="confirm-btn"
                 type="button"
                 onClick={() => setTime(timeDraft)}
                 disabled={!timeDraft}
