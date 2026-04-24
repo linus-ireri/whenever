@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
@@ -88,23 +89,48 @@ export default function Login() {
               <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Password
               </label>
-              <input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  background: '#0d0d0f',
-                  border: '1px solid #2a2a30',
-                  borderRadius: '10px',
-                  color: '#f0ede6',
-                  fontSize: '15px',
-                  outline: 'none'
-                }}
-              />
+              <div style={{ position: 'relative' }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 44px 12px 16px',
+                    background: '#0d0d0f',
+                    border: '1px solid #2a2a30',
+                    borderRadius: '10px',
+                    color: '#f0ede6',
+                    fontSize: '15px',
+                    outline: 'none'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '8px',
+                    background: showPassword ? '#E8C547' : '#1b1b20',
+                    border: showPassword ? '1px solid #E8C547' : '1px solid #3a3a44',
+                    color: showPassword ? '#0d0d0f' : '#f0ede6',
+                    cursor: 'pointer',
+                    padding: 0,
+                    fontSize: '15px',
+                    lineHeight: 1
+                  }}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
 
             {message && (
