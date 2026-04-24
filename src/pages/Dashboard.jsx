@@ -312,6 +312,11 @@ export default function Dashboard() {
     await supabase.auth.signOut()
   }
 
+  async function confirmLogout() {
+    const confirmation = window.confirm(`Log out ${user.email} from whenever?`)
+    if (confirmation) await handleLogout()
+  }
+
   const filtered = activeFilter === 'all'
     ? events
     : events.filter(e => e.category === activeFilter)
@@ -326,7 +331,8 @@ export default function Dashboard() {
       {/* Sidebar */}
       <aside className="dashboard-sidebar" style={{
         background: themeVars.sidebarBg,
-        borderRight: `1px solid ${themeVars.sidebarBorder}`,
+        '--sidebar-border': themeVars.sidebarBorder,
+        borderRight: '1px solid var(--sidebar-border)',
         padding: '32px 16px',
         display: 'flex',
         flexDirection: 'column',
@@ -334,19 +340,43 @@ export default function Dashboard() {
         overflowY: 'auto',
         flexShrink: 0
       }}>
-        <div style={{
-          fontFamily: 'Instrument Serif, serif',
-          fontSize: '26px',
-          padding: '0 8px',
-          marginBottom: '4px'
+        <div className="sidebar-top-row" style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: '12px',
+          marginBottom: '18px'
         }}>
-          when<span style={{ color: themeVars.accent, fontStyle: 'italic' }}>ever</span>
-        </div>
-        <div style={{
-          fontSize: '11px', color: themeVars.muted, padding: '0 8px',
-          marginBottom: '18px', letterSpacing: '0.1em', textTransform: 'uppercase'
-        }}>
-          AI Scheduler
+          <div>
+            <div style={{
+              fontFamily: 'Instrument Serif, serif',
+              fontSize: '26px',
+              padding: '0 8px',
+              marginBottom: '4px'
+            }}>
+              when<span style={{ color: themeVars.accent, fontStyle: 'italic' }}>ever</span>
+            </div>
+            <div style={{
+              fontSize: '11px', color: themeVars.muted, padding: '0 8px',
+              letterSpacing: '0.1em', textTransform: 'uppercase'
+            }}>
+              AI Scheduler
+            </div>
+          </div>
+          <button
+            className="filter-btn sidebar-mobile-logout"
+            onClick={confirmLogout}
+            style={{
+              justifyContent: 'center',
+              background: 'transparent',
+              color: themeVars.pageText,
+              border: `1px solid ${themeVars.surfaceBorder}`,
+              padding: '12px 16px',
+              fontSize: '13px'
+            }}
+          >
+            Log out
+          </button>
         </div>
         <button
           className="filter-btn"
@@ -451,21 +481,13 @@ export default function Dashboard() {
         )}
 
         <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: `1px solid ${themeVars.surfaceBorder}` }}>
-          <div style={{
+          <div className="sidebar-user-email" style={{
             fontSize: '11px', color: themeVars.muted, padding: '0 8px',
             marginBottom: '10px', overflow: 'hidden',
             textOverflow: 'ellipsis', whiteSpace: 'nowrap'
           }}>
             {user.email}
           </div>
-          <button
-            onClick={handleLogout}
-            className="filter-btn"
-            style={{ color: themeVars.muted }}
-          >
-            <span style={{ fontSize: '14px' }}>→</span>
-            Log Out
-          </button>
         </div>
       </aside>
 
