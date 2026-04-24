@@ -28,7 +28,7 @@ const THEME_PALETTES = {
     filterActive: '#1a1a1e',
     inputBg: '#0d0d0f',
     inputBorder: '#2a2a30',
-    placeholder: '#3a3a42',
+    placeholder: '#7f8796',
     scrollTrack: '#111',
     scrollThumb: '#2a2a30',
     eventHover: '#999',
@@ -140,8 +140,23 @@ export default function Dashboard() {
 
     input[type="date"]::-webkit-calendar-picker-indicator,
     input[type="time"]::-webkit-calendar-picker-indicator {
-      filter: invert(${theme === 'dark' ? 0.3 : 0.5});
+      filter: ${theme === 'dark' ? 'invert(0.95) brightness(1.2)' : 'invert(0.25) brightness(0.8)'};
       cursor: pointer;
+      opacity: 1;
+    }
+
+    input[type="date"]:invalid,
+    input[type="time"]:invalid {
+      color: ${themeVars.placeholder};
+      font-style: italic;
+    }
+
+    .time-input-empty::-webkit-datetime-edit {
+      color: transparent;
+    }
+
+    .time-input-empty::-webkit-date-and-time-value {
+      color: transparent;
     }
 
     .event-card {
@@ -791,8 +806,11 @@ export default function Dashboard() {
 function AddEventForm({ onEventAdded, userId, themeVars }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-  const [time, setTime] = useState('09:00')
+  const [date, setDate] = useState('')
+  const [dateDraft, setDateDraft] = useState('')
+  const [time, setTime] = useState('')
+  const [timeDraft, setTimeDraft] = useState('')
+  const [isTimeFocused, setIsTimeFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -801,6 +819,12 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
     console.log('AddEventForm handleSubmit called')
     setLoading(true)
     setMessage('')
+
+    if (!date || !time) {
+      setMessage('Please select a full date and confirm the time with OK.')
+      setLoading(false)
+      return
+    }
 
     const { error } = await supabase
       .from('events')
@@ -822,8 +846,10 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
       setMessage('Event added!')
       setTitle('')
       setCategory('')
-      setDate(new Date().toISOString().split('T')[0])
-      setTime('09:00')
+      setDate('')
+      setDateDraft('')
+      setTime('')
+      setTimeDraft('')
       onEventAdded()
     }
 
@@ -832,7 +858,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
 
   const fieldStyle = {
     width: '100%',
-    padding: '12px 16px',
+    padding: '12px 42px 12px 16px',
     background: themeVars.surface,
     border: `1px solid ${themeVars.surfaceBorder}`,
     borderRadius: '10px',
@@ -903,23 +929,96 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
         <div className="responsive-row form-row" style={{ marginBottom: '20px' }}>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Date</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              required
-              style={fieldStyle}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="date"
+                value={dateDraft}
+                onChange={(e) => {
+                  setDateDraft(e.target.value)
+                  setDate('')
+                }}
+                onFocus={(e) => e.target.showPicker?.()}
+                onClick={(e) => e.target.showPicker?.()}
+                required
+                style={fieldStyle}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setDate(dateDraft)}
+                disabled={!dateDraft}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: `1px solid ${themeVars.accent}`,
+                  background: date ? themeVars.accent : 'transparent',
+                  color: date ? themeVars.accentText : themeVars.accent,
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: dateDraft ? 'pointer' : 'not-allowed',
+                  opacity: dateDraft ? 1 : 0.6
+                }}
+              >
+                {date ? 'Date set' : 'OK'}
+              </button>
+            </div>
           </div>
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Time</label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              required
-              style={fieldStyle}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type="time"
+                className={!timeDraft && !isTimeFocused ? 'time-input-empty' : ''}
+                value={timeDraft}
+                onChange={(e) => {
+                  setTimeDraft(e.target.value)
+                  setTime('')
+                }}
+                onFocus={(e) => {
+                  setIsTimeFocused(true)
+                  e.target.showPicker?.()
+                }}
+                onBlur={() => setIsTimeFocused(false)}
+                onClick={(e) => e.target.showPicker?.()}
+                required
+                style={fieldStyle}
+              />
+              {!timeDraft && !isTimeFocused && (
+                <span style={{
+                  position: 'absolute',
+                  left: '16px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: themeVars.placeholder,
+                  fontSize: '14px',
+                  fontStyle: 'italic',
+                  pointerEvents: 'none'
+                }}>
+                  09:00 AM
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setTime(timeDraft)}
+                disabled={!timeDraft}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: `1px solid ${themeVars.accent}`,
+                  background: time ? themeVars.accent : 'transparent',
+                  color: time ? themeVars.accentText : themeVars.accent,
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  cursor: timeDraft ? 'pointer' : 'not-allowed',
+                  opacity: timeDraft ? 1 : 0.6
+                }}
+              >
+                {time ? 'Time set' : 'OK'}
+              </button>
+            </div>
           </div>
         </div>
 
