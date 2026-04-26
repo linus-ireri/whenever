@@ -194,6 +194,7 @@ export default function Dashboard() {
       border-color: ${themeVars.mutedDim};
     }
 
+    
     .icon-btn.del:hover {
       background: ${themeVars.deleteHoverBg};
       color: ${theme === 'dark' ? '#f07070' : '#c63e3d'};
