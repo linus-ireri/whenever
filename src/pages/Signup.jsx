@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient'
 export default function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
@@ -13,7 +14,16 @@ export default function Signup() {
     setLoading(true)
     setMessage('')
 
-    const { error } = await supabase.auth.signUp({ email, password })
+    const normalizedDisplayName = displayName.trim()
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: normalizedDisplayName,
+        },
+      },
+    })
 
     if (error) {
       setMessage(error.message)
@@ -72,6 +82,29 @@ export default function Signup() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  background: '#0d0d0f',
+                  border: '1px solid #2a2a30',
+                  borderRadius: '10px',
+                  color: '#f0ede6',
+                  fontSize: '15px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Nickname
+              </label>
+              <input
+                type="text"
+                placeholder="What should we call you?"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
                 required
                 style={{
                   width: '100%',

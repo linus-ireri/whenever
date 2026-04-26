@@ -362,6 +362,11 @@ export default function Dashboard() {
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
+  const displayName =
+    user.user_metadata?.display_name?.trim() ||
+    user.user_metadata?.username?.trim() ||
+    user.email?.split('@')[0] ||
+    'friend'
 
   return (
     <div className="dashboard-root" style={{ minHeight: '100vh', background: themeVars.pageBg, color: themeVars.pageText }}>
@@ -537,7 +542,7 @@ export default function Dashboard() {
             marginBottom: '6px'
           }}>
             Good {greeting},{' '}
-            <em style={{ color: '#E8C547' }}>friend.</em>
+            <em style={{ color: '#E8C547' }}>{displayName}.</em>
           </h1>
           <p style={{ color: themeVars.textSecondary, fontSize: '14px' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
