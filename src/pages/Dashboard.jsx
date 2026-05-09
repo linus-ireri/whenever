@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
+import DashboardAI from './DashboardAI'
 
 const CATEGORIES = {
   work:     { label: 'Work',     icon: '💼', color: '#E8C547', bg: '#1a1608' },
@@ -114,6 +115,7 @@ export default function Dashboard() {
   const [theme, setTheme] = useState('light')
   const [expandCategories, setExpandCategories] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [showAIAssistant, setShowAIAssistant] = useState(false)
   const themeVars = THEME_PALETTES[theme]
   const themedInputStyle = {
     ...baseInputStyle,
@@ -535,16 +537,37 @@ export default function Dashboard() {
 
         {/* Header */}
         <div style={{ marginBottom: '36px' }}>
-          <h1 style={{
-            fontFamily: 'Instrument Serif, serif',
-            fontSize: '38px',
-            fontWeight: '400',
-            lineHeight: 1.2,
-            marginBottom: '6px'
-          }}>
-            Good {greeting},{' '}
-            <em style={{ color: '#E8C547' }}>{displayName}.</em>
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <h1 style={{
+              fontFamily: 'Instrument Serif, serif',
+              fontSize: '38px',
+              fontWeight: '400',
+              lineHeight: 1.2,
+              margin: 0
+            }}>
+              Good {greeting},{' '}
+              <em style={{ color: '#E8C547' }}>{displayName}.</em>
+            </h1>
+            <button
+              onClick={() => setShowAIAssistant(!showAIAssistant)}
+              style={{
+                padding: '12px 16px',
+                background: themeVars.accent,
+                color: themeVars.accentText,
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontFamily: 'DM Sans, sans-serif'
+              }}
+            >
+              🤖 AI Assistant
+            </button>
+          </div>
           <p style={{ color: themeVars.textSecondary, fontSize: '14px' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
@@ -736,6 +759,15 @@ export default function Dashboard() {
         {/* Add Event Form */}
         <AddEventForm onEventAdded={fetchEvents} userId={user.id} themeVars={themeVars} />
       </main>
+
+      <DashboardAI
+        visible={showAIAssistant}
+        onClose={() => setShowAIAssistant(false)}
+        events={events}
+        setEvents={setEvents}
+        userId={user.id}
+        themeVars={themeVars}
+      />
 
       {/* Logout Confirmation Modal */}
       {showLogoutModal && (
