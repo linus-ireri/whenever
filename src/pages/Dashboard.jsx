@@ -235,6 +235,57 @@ export default function Dashboard() {
       font-weight: 500;
     }
 
+    .ai-assistant-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-radius: 10px;
+      background: ${themeVars.accent};
+      color: ${themeVars.accentText};
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      width: auto;
+      max-width: 220px;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .ai-assistant-button:hover {
+      filter: brightness(0.98);
+    }
+
+    .header-ai-button {
+      display: inline-flex;
+    }
+
+    .sidebar-ai-button {
+      display: none;
+      width: 100%;
+    }
+
+    @media (max-width: 768px) {
+      .header-ai-button {
+        display: none;
+      }
+      .sidebar-ai-button {
+        display: inline-flex;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header-ai-button {
+        display: none;
+      }
+      .sidebar-ai-button {
+        display: inline-flex;
+      }
+    }
+
     .sidebar-mobile-logout {
       width: auto;
       padding: 8px 12px;
@@ -478,6 +529,13 @@ export default function Dashboard() {
           </span>
         </button>
 
+        <button
+          className="ai-assistant-button sidebar-ai-button"
+          onClick={() => setShowAIAssistant(!showAIAssistant)}
+        >
+          🤖 AI Assistant
+        </button>
+
         {/* Category Buttons - Show/Hide Based on expandCategories */}
         {expandCategories && (
           <div style={{
@@ -549,20 +607,11 @@ export default function Dashboard() {
               <em style={{ color: '#E8C547' }}>{displayName}.</em>
             </h1>
             <button
+              className="ai-assistant-button header-ai-button"
               onClick={() => setShowAIAssistant(!showAIAssistant)}
               style={{
-                padding: '12px 16px',
-                background: themeVars.accent,
-                color: themeVars.accentText,
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '14px',
-                fontWeight: '600',
-                cursor: 'pointer',
-                display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                fontFamily: 'DM Sans, sans-serif'
+                gap: '8px'
               }}
             >
               🤖 AI Assistant
