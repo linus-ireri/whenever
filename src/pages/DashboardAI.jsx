@@ -34,9 +34,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
   if (!visible) return null
 
   const conversationHistory = aiConversation
-    .filter((msg) => msg.ai)
-    .slice(-20)
-    .map((msg) => `${msg.user}\nAI: ${msg.ai}`)
+    .slice(-25)
+    .map((msg) => `User: ${msg.user}\nAI: ${msg.ai || '...'}`)
     .join('\n')
 
   const submitAIText = async () => {
@@ -73,7 +72,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         .map((e) => `${e.title} on ${e.date} at ${e.time} (${e.category})`)
         .join(', ')
 
-      const prompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nExisting events: ${existingEvents || 'None'}\n\nConversation history (last 20 messages):\n${conversationHistory || 'None'}\n\nThe user said: "${userInput}"\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
+      const prompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nExisting events: ${existingEvents || 'None'}\n\nConversation history (last 25 messages):\n${conversationHistory || 'None'}\n\nThe user said: "${userInput}"\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
 
       const result = await model.generateContent(prompt)
       const response = await result.response
