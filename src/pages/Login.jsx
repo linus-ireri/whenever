@@ -86,9 +86,14 @@ export default function Login() {
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', fontSize: '12px', color: '#999', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                Password
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label style={{ fontSize: '12px', color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Password
+                </label>
+                <a href="/forgot-password" style={{ fontSize: '12px', color: '#E8C547', textDecoration: 'none', fontWeight: '500' }}>
+                  Forgot password?
+                </a>
+              </div>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? 'text' : 'password'}

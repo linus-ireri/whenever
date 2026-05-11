@@ -14,7 +14,7 @@ const parseAIJsonResponse = (text) => {
 
   try {
     return JSON.parse(jsonText)
-  } catch (err) {
+  } catch {
     return null
   }
 }
@@ -22,14 +22,222 @@ const parseAIJsonResponse = (text) => {
 export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars }) {
   const [aiInput, setAiInput] = useState('')
   const [aiConversation, setAiConversation] = useState([])
+  const [chatSessions, setChatSessions] = useState([])
+  const [activeChatId, setActiveChatId] = useState(null)
+  const [showChatMenu, setShowChatMenu] = useState(false)
+  const [editingChatId, setEditingChatId] = useState(null)
+  const [editingTitle, setEditingTitle] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const chatContainerRef = useRef(null)
+  const menuContainerRef = useRef(null)
+
+  const storageKey = `whenever-ai-chats-${userId || 'guest'}`
+
+  const saveChatSessions = (sessions) => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(sessions))
+    } catch (err) {
+      console.error('Unable to save chat sessions', err)
+    }
+  }
+
+  const formatTimeOnly = (timestamp) => {
+    if (!timestamp) return ''
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const getDayLabel = (timestamp, previousTimestamp) => {
+    if (!timestamp) return null
+
+    const currentDate = new Date(timestamp)
+    currentDate.setHours(0, 0, 0, 0)
+
+    let previousDate = null
+    if (previousTimestamp) {
+      previousDate = new Date(previousTimestamp)
+      previousDate.setHours(0, 0, 0, 0)
+    }
+
+    if (previousDate && currentDate.getTime() === previousDate.getTime()) {
+      return null
+    }
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dayDiff = Math.round((currentDate.getTime() - today.getTime()) / 86400000)
+
+    if (dayDiff === 0) return 'Today'
+    if (dayDiff === -1) return 'Yesterday'
+    if (dayDiff === 1) return 'Tomorrow'
+    return new Date(timestamp).toLocaleDateString(undefined, { weekday: 'long' })
+  }
+
+  const getChatTitleFromText = (text) => {
+    const cleaned = text.trim()
+    if (!cleaned) return 'New chat'
+    const firstSentence = cleaned.split(/(?<=[.?!])\s+/)[0] || cleaned
+    const trimmed = firstSentence.length > 45 ? `${firstSentence.slice(0, 45).trim()}...` : firstSentence
+    return trimmed || 'New chat'
+  }
+
+  const setActiveChatTitle = (title) => {
+    if (!activeChatId) return
+    setChatSessions((prev) => {
+      const next = prev.map((chat) =>
+        chat.id === activeChatId ? { ...chat, title, updatedAt: new Date().toISOString() } : chat
+      )
+      saveChatSessions(next)
+      return next
+    })
+  }
+
+  const startEditingChatTitle = (chat) => {
+    setEditingChatId(chat.id)
+    setEditingTitle(chat.title)
+  }
+
+  const cancelEditChatTitle = () => {
+    setEditingChatId(null)
+    setEditingTitle('')
+  }
+
+  const saveEditingChatTitle = () => {
+    const title = editingTitle.trim() || 'New chat'
+    if (!editingChatId) return
+    setChatSessions((prev) => {
+      const next = prev.map((chat) =>
+        chat.id === editingChatId ? { ...chat, title, updatedAt: new Date().toISOString() } : chat
+      )
+      saveChatSessions(next)
+      return next
+    })
+    cancelEditChatTitle()
+  }
+
+  const deleteChatSession = (chatId) => {
+    const nextChats = chatSessions.filter((chat) => chat.id !== chatId)
+    if (!nextChats.length) {
+      const newChat = createChatSession('New chat')
+      setChatSessions([newChat])
+      setActiveChatId(newChat.id)
+      setAiConversation([])
+      saveChatSessions([newChat])
+      setShowChatMenu(false)
+      return
+    }
+
+    const nextActiveId = activeChatId === chatId ? nextChats[0].id : activeChatId
+    const activeChat = nextChats.find((chat) => chat.id === nextActiveId)
+
+    setChatSessions(nextChats)
+    setActiveChatId(nextActiveId)
+    setAiConversation(activeChat?.messages || [])
+    saveChatSessions(nextChats)
+    setShowChatMenu(false)
+    if (editingChatId === chatId) cancelEditChatTitle()
+  }
+
+  const createChatSession = (title) => ({
+    id:
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    title: title || 'New chat',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    messages: [],
+  })
 
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
     }
   }, [aiConversation, aiLoading])
+
+  useEffect(() => {
+    if (visible && chatContainerRef.current) {
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
+        }
+      }, 0)
+    }
+  }, [visible])
+
+  useEffect(() => {
+    if (!showChatMenu) return
+
+    const handleClickOutside = (event) => {
+      if (menuContainerRef.current && !menuContainerRef.current.contains(event.target)) {
+        setShowChatMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showChatMenu])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const sessions = JSON.parse(raw)
+        if (Array.isArray(sessions) && sessions.length) {
+          setChatSessions(sessions)
+          setActiveChatId(sessions[0].id)
+          setAiConversation(sessions[0].messages || [])
+          return
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load chat sessions', err)
+    }
+
+    const firstChat = createChatSession('New chat')
+    setChatSessions([firstChat])
+    setActiveChatId(firstChat.id)
+    setAiConversation([])
+    saveChatSessions([firstChat])
+  }, [storageKey])
+
+  useEffect(() => {
+    if (!activeChatId) return
+    const activeChat = chatSessions.find((chat) => chat.id === activeChatId)
+    if (activeChat) {
+      setAiConversation(activeChat.messages || [])
+    }
+  }, [activeChatId, chatSessions])
+
+  const createNewChat = () => {
+    const newChat = createChatSession('New chat')
+    setChatSessions((prev) => {
+      const next = [newChat, ...prev]
+      saveChatSessions(next)
+      return next
+    })
+    setActiveChatId(newChat.id)
+    setAiConversation([])
+    setShowChatMenu(false)
+  }
+
+  const updateActiveChatMessages = (nextMessagesOrUpdater) => {
+    setAiConversation((prev) => {
+      const nextMessages = typeof nextMessagesOrUpdater === 'function' ? nextMessagesOrUpdater(prev) : nextMessagesOrUpdater
+      setChatSessions((prevSessions) => {
+        const next = prevSessions.map((chat) =>
+          chat.id === activeChatId
+            ? { ...chat, messages: nextMessages, updatedAt: new Date().toISOString() }
+            : chat
+        )
+        saveChatSessions(next)
+        return next
+      })
+      return nextMessages
+    })
+  }
 
   if (!visible) return null
 
@@ -42,7 +250,24 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
     const text = aiInput.trim()
     if (!text) return
 
-    setAiConversation((prev) => [...prev, { user: text, ai: '' }])
+    const activeChat = chatSessions.find((chat) => chat.id === activeChatId)
+    if (
+      activeChat &&
+      (activeChat.title === 'New chat' || activeChat.title.startsWith('Chat '))
+    ) {
+      setActiveChatTitle(getChatTitleFromText(text))
+    }
+
+    updateActiveChatMessages((prev) => [
+      ...prev,
+      {
+        user: text,
+        userTimestamp: new Date().toISOString(),
+        ai: '',
+        aiTimestamp: null,
+      },
+    ])
+
     setAiLoading(true)
     setAiInput('')
     await processWithAI(text)
@@ -51,16 +276,34 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
 
   const processWithAI = async (userInput) => {
     const updateLastMessage = (aiReply) => {
-      setAiConversation((prev) => {
-        if (!prev.length) return [{ user: userInput, ai: aiReply }]
+      updateActiveChatMessages((prev) => {
+        if (!prev.length) {
+          return [
+            {
+              user: userInput,
+              userTimestamp: new Date().toISOString(),
+              ai: aiReply,
+              aiTimestamp: new Date().toISOString(),
+            },
+          ]
+        }
 
         const updated = [...prev]
         const last = updated[updated.length - 1]
 
         if (last.user === userInput && last.ai === '') {
-          updated[updated.length - 1] = { ...last, ai: aiReply }
+          updated[updated.length - 1] = {
+            ...last,
+            ai: aiReply,
+            aiTimestamp: new Date().toISOString(),
+          }
         } else {
-          updated.push({ user: userInput, ai: aiReply })
+          updated.push({
+            user: userInput,
+            userTimestamp: new Date().toISOString(),
+            ai: aiReply,
+            aiTimestamp: new Date().toISOString(),
+          })
         }
 
         return updated
@@ -71,8 +314,11 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       const existingEvents = events
         .map((e) => `${e.title} on ${e.date} at ${e.time} (${e.category})`)
         .join(', ')
+      const now = new Date()
+      const currentTime = now.toLocaleString()
+      const currentDate = now.toISOString().slice(0, 10)
 
-      const prompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nExisting events: ${existingEvents || 'None'}\n\nConversation history (last 25 messages):\n${conversationHistory || 'None'}\n\nThe user said: "${userInput}"\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
+      const prompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nCurrent local date and time: ${currentTime} (date: ${currentDate})\nUse this to resolve relative date phrases like tomorrow, next week, and later today.\n\nExisting events: ${existingEvents || 'None'}\n\nConversation history (last 25 messages):\n${conversationHistory || 'None'}\n\nThe user said: "${userInput}"\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
 
       const result = await model.generateContent(prompt)
       const response = await result.response
@@ -226,6 +472,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           zIndex: 100,
         }}
       >
+      <div ref={menuContainerRef}>
       <div
         style={{
           padding: '20px',
@@ -235,16 +482,32 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           justifyContent: 'space-between',
         }}
       >
-        <h3
-          style={{
-            fontFamily: 'Instrument Serif, serif',
-            fontSize: '20px',
-            margin: 0,
-            color: themeVars.pageText,
-          }}
-        >
-          AI Event Assistant
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={() => setShowChatMenu((prev) => !prev)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: themeVars.pageText,
+              fontSize: '20px',
+              cursor: 'pointer',
+              padding: '6px',
+            }}
+            aria-label="Toggle chat menu"
+          >
+            ☰
+          </button>
+          <h3
+            style={{
+              fontFamily: 'Instrument Serif, serif',
+              fontSize: '20px',
+              margin: 0,
+              color: themeVars.pageText,
+            }}
+          >
+            AI Event Assistant
+          </h3>
+        </div>
         <button
           onClick={onClose}
           style={{
@@ -257,6 +520,148 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         >
           ✕
         </button>
+      </div>
+
+      {showChatMenu && (
+        <div
+          style={{
+            padding: '16px 20px',
+            borderBottom: `1px solid ${themeVars.surfaceBorder}`,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px',
+            background: themeVars.surface,
+          }}
+        >
+          <button
+            onClick={createNewChat}
+            style={{
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: 'none',
+              background: themeVars.actionBg,
+              color: themeVars.actionText,
+              cursor: 'pointer',
+              fontWeight: 700,
+              alignSelf: 'flex-start',
+            }}
+          >
+            New chat
+          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {chatSessions.map((chat) => (
+              <div
+                key={chat.id}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto auto',
+                  gap: '8px',
+                  alignItems: 'center',
+                }}
+              >
+                {editingChatId === chat.id ? (
+                  <input
+                    value={editingTitle}
+                    onChange={(e) => setEditingTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveEditingChatTitle()
+                      if (e.key === 'Escape') cancelEditChatTitle()
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      borderRadius: '14px',
+                      border: `1px solid ${themeVars.surfaceBorder}`,
+                      background: themeVars.inputBg,
+                      color: themeVars.pageText,
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => {
+                      setActiveChatId(chat.id)
+                      setShowChatMenu(false)
+                    }}
+                    style={{
+                      textAlign: 'left',
+                      padding: '10px 14px',
+                      borderRadius: '14px',
+                      border: '1px solid',
+                      borderColor: chat.id === activeChatId ? themeVars.accent : themeVars.surfaceBorder,
+                      background: chat.id === activeChatId ? themeVars.accent : themeVars.surface,
+                      color: chat.id === activeChatId ? themeVars.accentText : themeVars.pageText,
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      whiteSpace: 'normal',
+                    }}
+                  >
+                    {chat.title}
+                  </button>
+                )}
+
+                {editingChatId === chat.id ? (
+                  <button
+                    onClick={saveEditingChatTitle}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '14px',
+                      border: '1px solid ' + themeVars.surfaceBorder,
+                      background: themeVars.actionBg,
+                      color: themeVars.actionText,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Save
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => startEditingChatTitle(chat)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '14px',
+                      border: '1px solid ' + themeVars.surfaceBorder,
+                      background: 'transparent',
+                      color: themeVars.pageText,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
+
+                <button
+                  onClick={() => deleteChatSession(chat.id)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '14px',
+                    border: '1px solid ' + themeVars.surfaceBorder,
+                    background: themeVars.surface,
+                    color: themeVars.pageText,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div
+        style={{
+          padding: '16px 20px',
+          borderBottom: `1px solid ${themeVars.surfaceBorder}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}
+      >
+        <div style={{ fontSize: '14px', color: themeVars.muted }}>Active chat</div>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: themeVars.pageText }}>
+          {chatSessions.find((chat) => chat.id === activeChatId)?.title || 'New chat'}
+        </div>
+      </div>
       </div>
 
       <div
@@ -275,10 +680,30 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
             </p>
           ) : (
             aiConversation.map((msg, i) => {
+              const previousTimestamp =
+                i > 0
+                  ? aiConversation[i - 1].aiTimestamp || aiConversation[i - 1].userTimestamp
+                  : null
+              const dayLabel = getDayLabel(msg.userTimestamp || msg.aiTimestamp, previousTimestamp)
               const isPendingAiMessage = msg.ai === '' && i === aiConversation.length - 1 && aiLoading
 
               return (
                 <div key={i} style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {dayLabel ? (
+                    <div
+                      style={{
+                        alignSelf: 'center',
+                        padding: '6px 12px',
+                        borderRadius: '999px',
+                        background: themeVars.surfaceBorder,
+                        color: themeVars.muted,
+                        fontSize: '12px',
+                      }}
+                    >
+                      {dayLabel}
+                    </div>
+                  ) : null}
+
                   <div
                     style={{
                       alignSelf: 'flex-end',
@@ -294,6 +719,9 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
                     }}
                   >
                     <strong>You:</strong> {msg.user}
+                    <div style={{ marginTop: '8px', fontSize: '12px', color: themeVars.muted }}>
+                      {formatTimeOnly(msg.userTimestamp)}
+                    </div>
                   </div>
 
                   {isPendingAiMessage ? (
@@ -330,6 +758,11 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
                       }}
                     >
                       <strong>AI:</strong> {msg.ai}
+                      {msg.aiTimestamp ? (
+                        <div style={{ marginTop: '8px', fontSize: '12px', color: themeVars.accentText, opacity: 0.85 }}>
+                          {formatTimeOnly(msg.aiTimestamp)}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </div>
@@ -355,7 +788,11 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
             <input
               type="text"
               value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
+              onChange={(e) => {
+                setAiInput(e.target.value)
+                setShowChatMenu(false)
+              }}
+              onFocus={() => setShowChatMenu(false)}
               placeholder="Type your event details and click OK"
               style={{
                 flex: 1,
