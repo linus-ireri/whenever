@@ -483,8 +483,10 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       >
       <div
         style={{
-          position: 'sticky',
+          position: 'absolute',
           top: 0,
+          left: 0,
+          right: 0,
           zIndex: 20,
           background: themeVars.surface,
         }}
@@ -537,9 +539,22 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           ✕
         </button>
       </div>
-      </div>
 
-      {showChatMenu && (
+      <div
+        style={{
+          padding: '16px 20px',
+          borderBottom: `1px solid ${themeVars.surfaceBorder}`,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}
+      >
+        <div style={{ fontSize: '14px', color: themeVars.muted }}>Active chat</div>
+        <div style={{ fontSize: '16px', fontWeight: 700, color: themeVars.pageText }}>
+          {chatSessions.find((chat) => chat.id === activeChatId)?.title || 'New chat'}
+        </div>
+      </div>
+      </div>
         <div
           ref={menuContainerRef}
           style={{
@@ -549,8 +564,10 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
             flexDirection: 'column',
             gap: '10px',
             background: themeVars.surface,
-            position: 'sticky',
-            top: '80px',
+            position: 'absolute',
+            top: '140px',
+            left: 0,
+            right: 0,
             zIndex: 15,
           }}
         >
@@ -671,23 +688,9 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
 
       <div
         style={{
-          padding: '16px 20px',
-          borderBottom: `1px solid ${themeVars.surfaceBorder}`,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '6px',
-        }}
-      >
-        <div style={{ fontSize: '14px', color: themeVars.muted }}>Active chat</div>
-        <div style={{ fontSize: '16px', fontWeight: 700, color: themeVars.pageText }}>
-          {chatSessions.find((chat) => chat.id === activeChatId)?.title || 'New chat'}
-        </div>
-      </div>
-
-      <div
-        style={{
           flex: 1,
           padding: '20px',
+          paddingTop: '140px',
           display: 'flex',
           flexDirection: 'column',
           minHeight: 0,
