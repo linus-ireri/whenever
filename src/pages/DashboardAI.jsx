@@ -452,7 +452,15 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
             .ai-assistant-panel {
               width: 100vw !important;
               left: 0 !important;
-              right: auto !important;
+              right: 0 !important;
+              bottom: 0 !important;
+              top: 0 !important;
+              border-left: none !important;
+              border-right: none !important;
+              border-radius: 0 !important;
+            }
+            .ai-assistant-panel form {
+              padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
             }
           }
         `}
@@ -464,7 +472,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           top: 0,
           right: 0,
           width: '400px',
-          height: '100vh',
+          maxWidth: '100vw',
+          bottom: 0,
           background: themeVars.surface,
           borderLeft: `1px solid ${themeVars.surfaceBorder}`,
           display: 'flex',
@@ -796,6 +805,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
               placeholder="Type your event details and click OK"
               style={{
                 flex: 1,
+                minWidth: 0,
                 padding: '14px 16px',
                 borderRadius: '14px',
                 border: `1px solid ${themeVars.inputBorder}`,
