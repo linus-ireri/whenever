@@ -482,7 +482,6 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         }}
       >
       <div
-        ref={menuContainerRef}
         style={{
           position: 'sticky',
           top: 0,
@@ -538,9 +537,11 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           ✕
         </button>
       </div>
+      </div>
 
       {showChatMenu && (
         <div
+          ref={menuContainerRef}
           style={{
             padding: '16px 20px',
             borderBottom: `1px solid ${themeVars.surfaceBorder}`,
@@ -548,6 +549,9 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
             flexDirection: 'column',
             gap: '10px',
             background: themeVars.surface,
+            position: 'sticky',
+            top: '80px',
+            zIndex: 15,
           }}
         >
           <button
@@ -678,7 +682,6 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         <div style={{ fontSize: '16px', fontWeight: 700, color: themeVars.pageText }}>
           {chatSessions.find((chat) => chat.id === activeChatId)?.title || 'New chat'}
         </div>
-      </div>
       </div>
 
       <div
