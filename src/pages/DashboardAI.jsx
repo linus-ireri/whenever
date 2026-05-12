@@ -481,7 +481,15 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           zIndex: 100,
         }}
       >
-      <div ref={menuContainerRef}>
+      <div
+        ref={menuContainerRef}
+        style={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 20,
+          background: themeVars.surface,
+        }}
+      >
       <div
         style={{
           padding: '20px',
@@ -514,7 +522,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
               color: themeVars.pageText,
             }}
           >
-            AI Event Assistant
+            Your Personal AI Scheduler
           </h3>
         </div>
         <button
