@@ -555,6 +555,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         </div>
       </div>
       </div>
+
+      {showChatMenu && (
         <div
           ref={menuContainerRef}
           style={{
