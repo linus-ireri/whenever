@@ -797,6 +797,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           )}
         </div>
 
+
         <form
           onSubmit={(e) => {
             e.preventDefault()
