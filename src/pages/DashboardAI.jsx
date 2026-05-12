@@ -688,6 +688,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         </div>
       )}
 
+
       <div
         style={{
           flex: 1,
