@@ -37,7 +37,7 @@ Week 1 establishes the full foundation: authentication, database, and complete C
 | Backend / Database | Supabase (PostgreSQL) | Stores all event data |
 | Authentication | Supabase Auth | User signup, login, session management |
 | Deployment | Vercel | Hosting and CI/CD |
-| Future: AI | Claude API (Anthropic) | Natural language event parsing |
+| Future: AI | Groq | Natural language event parsing |
 | Future: Notifications | Upstash QStash | Scheduled push notifications |
 
 ---
@@ -74,6 +74,7 @@ Create a `.env` file in the root of your project with the following:
 ```
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-public-key
+VITE_GROQ_API_KEY=your-grok-api-key
 ```
 
 **Where to find these:**
@@ -84,6 +85,8 @@ VITE_SUPABASE_ANON_KEY=your-anon-public-key
 > ⚠️ Never use the `service_role` key in frontend code. It has full admin access and must never be exposed.
 
 > ⚠️ Never commit your `.env` file to GitHub. It is already listed in `.gitignore`.
+
+> Recommended Node version: `22.12.0+`. Use `nvm use` if you manage Node with nvm.
 
 ---
 

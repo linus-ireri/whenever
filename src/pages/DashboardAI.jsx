@@ -1,10 +1,64 @@
 import { useState, useEffect, useRef } from 'react'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '../supabaseClient'
 
-const model = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '').getGenerativeModel({
-  model: 'gemini-2.5-flash',
-})
+const groqApiKey = import.meta.env.VITE_GROQ_API_KEY || ''
+
+const parseGroqResponseText = (data) => {
+  if (!data) return ''
+
+  if (typeof data.output_text === 'string') return data.output_text
+  if (typeof data.output === 'string') return data.output
+
+  const choiceText = data?.choices?.[0]?.message?.content
+  if (typeof choiceText === 'string') return choiceText
+
+  if (typeof data?.choices?.[0]?.delta?.content === 'string') {
+    return data.choices[0].delta.content
+  }
+
+  if (Array.isArray(data.output)) {
+    return data.output
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object' && Array.isArray(item.content)) {
+          return item.content
+            .map((part) => (typeof part === 'string' ? part : part.text || ''))
+            .join('')
+        }
+        return ''
+      })
+      .join('')
+  }
+
+  return ''
+}
+
+const getGroqReply = async (messages) => {
+  if (!groqApiKey) {
+    throw new Error('Missing VITE_GROQ_API_KEY in environment')
+  }
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${groqApiKey}`,
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text()
+    throw new Error(`Groq API error: ${response.status} ${response.statusText} - ${errorBody}`)
+  }
+
+  const data = await response.json()
+  return parseGroqResponseText(data)
+}
 
 const parseAIJsonResponse = (text) => {
   const cleaned = text.trim()
@@ -241,11 +295,6 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
 
   if (!visible) return null
 
-  const conversationHistory = aiConversation
-    .slice(-25)
-    .map((msg) => `User: ${msg.user}\nAI: ${msg.ai || '...'}`)
-    .join('\n')
-
   const submitAIText = async () => {
     const text = aiInput.trim()
     if (!text) return
@@ -318,11 +367,23 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       const currentTime = now.toLocaleString()
       const currentDate = now.toISOString().slice(0, 10)
 
-      const prompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nCurrent local date and time: ${currentTime} (date: ${currentDate})\nUse this to resolve relative date phrases like tomorrow, next week, and later today.\n\nExisting events: ${existingEvents || 'None'}\n\nConversation history (last 25 messages):\n${conversationHistory || 'None'}\n\nThe user said: "${userInput}"\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
+      const systemPrompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nCurrent local date and time: ${currentTime} (date: ${currentDate})\nUse this to resolve relative date phrases like tomorrow, next week, and later today.\n\nExisting events: ${existingEvents || 'None'}\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
 
-      const result = await model.generateContent(prompt)
-      const response = await result.response
-      const aiText = await response.text()
+      const historyMessages = aiConversation
+        .slice(-25)
+        .filter((msg) => msg.ai)
+        .flatMap((msg) => [
+          { role: 'user', content: msg.user },
+          { role: 'assistant', content: msg.ai },
+        ])
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        ...historyMessages,
+        { role: 'user', content: userInput },
+      ]
+
+      const aiText = await getGroqReply(messages)
       const aiResponse = parseAIJsonResponse(aiText)
 
       if (aiResponse?.action === 'save') {
