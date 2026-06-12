@@ -62,27 +62,89 @@ const getGroqReply = async (messages) => {
 
 const parseAIJsonResponse = (text) => {
   const cleaned = (text || '').trim()
-  const firstBrace = cleaned.indexOf('{')
-  const lastBrace = cleaned.lastIndexOf('}')
+  if (!cleaned) return { json: null, text: '' }
 
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    const jsonText = cleaned.slice(firstBrace, lastBrace + 1)
-    let parsed = null
-    try {
-      parsed = JSON.parse(jsonText)
-    } catch (e) {
-      parsed = null
+  // Find all top-level JSON object substrings by scanning for balanced braces
+  const objects = []
+  let depth = 0
+  let start = -1
+  for (let i = 0; i < cleaned.length; i++) {
+    const ch = cleaned[i]
+    if (ch === '{') {
+      if (depth === 0) start = i
+      depth += 1
+    } else if (ch === '}') {
+      depth -= 1
+      if (depth === 0 && start !== -1) {
+        objects.push(cleaned.slice(start, i + 1))
+        start = -1
+      }
     }
-
-    // remove the JSON substring from the displayed text
-    const before = cleaned.slice(0, firstBrace).trim()
-    const after = cleaned.slice(lastBrace + 1).trim()
-    const display = [before, after].filter(Boolean).join(' ').trim()
-
-    return { json: parsed, text: display || (parsed ? '' : cleaned) }
   }
 
-  return { json: null, text: cleaned }
+  // Try parsing objects found; collect parsed JSON objects and pick the last successfully parsed
+  const parsedList = []
+  let lastParsed = null
+  for (const objText of objects) {
+    try {
+      const p = JSON.parse(objText)
+      parsedList.push(p)
+      lastParsed = p
+    } catch (e) {
+      // ignore parse errors for individual objects
+    }
+  }
+
+  // Build display text by removing all found JSON substrings
+  let display = cleaned
+  for (const objText of objects) {
+    display = display.replace(objText, ' ')
+  }
+  display = display.trim()
+
+  const buildReplyText = (displayText, response) => {
+    const trimmed = (displayText || '').trim()
+    if (trimmed) return trimmed
+    if (!response || typeof response !== 'object') return ''
+
+    const action = response.action
+    if (action === 'save') {
+      const title = response.event?.title || 'that event'
+      const date = response.event?.date ? ` on ${response.event.date}` : ''
+      const time = response.event?.time ? ` at ${response.event.time}` : ''
+      return `Okay, I will save ${title}${date}${time}.`
+    }
+    if (action === 'update') {
+      const title = response.event?.title || 'the event'
+      const date = response.event?.date ? ` on ${response.event.date}` : ''
+      const time = response.event?.time ? ` at ${response.event.time}` : ''
+      return `Okay, I will update ${title}${date}${time}.`
+    }
+    if (action === 'delete') {
+      return 'Okay, I will delete the matching event.'
+    }
+    if (action === 'ask') {
+      return response.question ? response.question.trim() : 'Can you provide more details?'
+    }
+    return ''
+  }
+
+  // If no JSON objects found, attempt to parse any JSON-like content fallback
+  if (!lastParsed) {
+    try {
+      lastParsed = JSON.parse(cleaned)
+      display = ''
+      parsedList.push(lastParsed)
+    } catch (e) {
+      lastParsed = null
+    }
+  }
+
+  return {
+    jsonList: parsedList,
+    json: lastParsed,
+    text: buildReplyText(display, lastParsed),
+  }
 }
 
 export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars }) {
@@ -379,7 +441,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       const currentTime = now.toLocaleString()
       const currentDate = now.toISOString().slice(0, 10)
 
-      const systemPrompt = `You are a friendly, conversational AI scheduling assistant that naturally engages with users while helping them manage their calendar. Maintain context from previous messages and correctly resolve references like "it", "that event", or "move it". Provide a brief, human-friendly reply to the user (greetings and small talk are fine).\n\nAt the end of your reply, include a single machine-readable JSON object (no surrounding code blocks) containing one of the following actions: \n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question in natural language and also include an action:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not include any internal tool outputs or diagnostics. The UI will hide the JSON object from users; keep the visible reply natural and concise.`
+      const systemPrompt = `You are a friendly, conversational AI scheduling assistant that naturally engages with users while helping them manage their calendar. Maintain context from previous messages and correctly resolve references like "it", "that event", or "move it". Respond first with one plain, user-facing sentence or a short paragraph.\n\nAfter that, on a new line, include exactly one machine-readable JSON object with no markdown, no code fences, and no extra formatting. The JSON object should contain one of the following actions: \n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question in natural language and also include an action:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not include any internal tool outputs or diagnostics. The UI will hide the JSON object from users; keep the visible reply natural and concise.`
 
       const historyMessages = aiConversation
         .slice(-25)
