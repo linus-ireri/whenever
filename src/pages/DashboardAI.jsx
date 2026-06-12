@@ -61,16 +61,28 @@ const getGroqReply = async (messages) => {
 }
 
 const parseAIJsonResponse = (text) => {
-  const cleaned = text.trim()
+  const cleaned = (text || '').trim()
   const firstBrace = cleaned.indexOf('{')
   const lastBrace = cleaned.lastIndexOf('}')
-  const jsonText = firstBrace !== -1 && lastBrace !== -1 ? cleaned.slice(firstBrace, lastBrace + 1) : cleaned
 
-  try {
-    return JSON.parse(jsonText)
-  } catch {
-    return null
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const jsonText = cleaned.slice(firstBrace, lastBrace + 1)
+    let parsed = null
+    try {
+      parsed = JSON.parse(jsonText)
+    } catch (e) {
+      parsed = null
+    }
+
+    // remove the JSON substring from the displayed text
+    const before = cleaned.slice(0, firstBrace).trim()
+    const after = cleaned.slice(lastBrace + 1).trim()
+    const display = [before, after].filter(Boolean).join(' ').trim()
+
+    return { json: parsed, text: display || (parsed ? '' : cleaned) }
   }
+
+  return { json: null, text: cleaned }
 }
 
 export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars }) {
@@ -367,7 +379,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       const currentTime = now.toLocaleString()
       const currentDate = now.toISOString().slice(0, 10)
 
-      const systemPrompt = `You are an AI event assistant that helps users schedule, update, and delete calendar events.\n\nCurrent local date and time: ${currentTime} (date: ${currentDate})\nUse this to resolve relative date phrases like tomorrow, next week, and later today.\n\nExisting events: ${existingEvents || 'None'}\n\nRespond only with a JSON object. Use one of the following actions:\n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question like:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not add any extra text outside the JSON object.`
+      const systemPrompt = `You are a friendly, conversational AI scheduling assistant that naturally engages with users while helping them manage their calendar. Maintain context from previous messages and correctly resolve references like "it", "that event", or "move it". Provide a brief, human-friendly reply to the user (greetings and small talk are fine).\n\nAt the end of your reply, include a single machine-readable JSON object (no surrounding code blocks) containing one of the following actions: \n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question in natural language and also include an action:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not include any internal tool outputs or diagnostics. The UI will hide the JSON object from users; keep the visible reply natural and concise.`
 
       const historyMessages = aiConversation
         .slice(-25)
@@ -384,7 +396,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       ]
 
       const aiText = await getGroqReply(messages)
-      const aiResponse = parseAIJsonResponse(aiText)
+      const { json: aiResponse, text: aiDisplay } = parseAIJsonResponse(aiText)
 
       if (aiResponse?.action === 'save') {
         const savedEvent = await saveEventFromAI(aiResponse.event)
@@ -411,9 +423,10 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           updateLastMessage('I could not find or update any matching event. Please give more exact details.')
         }
       } else if (aiResponse?.action === 'ask') {
-        updateLastMessage(aiResponse.question)
+        updateLastMessage(aiDisplay || aiResponse.question || 'Could you provide more details?')
       } else {
-        updateLastMessage(aiText)
+        // Show the conversational portion only (JSON is stripped by parser)
+        updateLastMessage(aiDisplay || aiText || 'Sorry, I did not understand that.')
       }
     } catch (error) {
       console.error('AI processing error:', error)
