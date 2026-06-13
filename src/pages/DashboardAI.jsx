@@ -150,6 +150,36 @@ const parseAIJsonResponse = (text) => {
   }
 }
 
+const PROPOSAL_PATTERN = /Got it — (.+?) on (\d{4}-\d{2}-\d{2}) at (\d{1,2}:\d{2})(?::\d{2})? \((work|family|call|travel|personal)\)/i
+
+const extractPendingProposal = (conversation) => {
+  if (!Array.isArray(conversation)) return null
+
+  for (let i = conversation.length - 1; i >= 0; i -= 1) {
+    const aiText = conversation[i]?.ai || ''
+    if (!/should i save/i.test(aiText)) continue
+
+    const match = aiText.match(PROPOSAL_PATTERN)
+    if (!match) continue
+
+    const [, title, date, time, category] = match
+    const [hours, minutes] = time.split(':')
+    return {
+      title: title.trim(),
+      date,
+      time: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`,
+      category: category.toLowerCase(),
+    }
+  }
+
+  return null
+}
+
+const isConfirmation = (text) => {
+  const normalized = text.trim().toLowerCase().replace(/[.!?,]/g, '').replace(/\s+/g, ' ')
+  return /^(yes|yeah|yep|yup|save it|add it|schedule it|confirm|go ahead|please save|do it)$/.test(normalized)
+}
+
 export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars, refreshEvents }) {
   const [aiInput, setAiInput] = useState('')
   const [aiConversation, setAiConversation] = useState([])
@@ -466,15 +496,15 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
 
     IMPORTANT RULES:
     1. NEVER save, update, or delete unless the user explicitly says "yes", "save it", "add it", "schedule it", "confirm", or "go ahead". "okay", "ok", "hmm", "sure", "alright" alone are NOT confirmation to save.
-    2. After successfully saving an event, the conversation is DONE. Reply with a short confirmation like "Done! I've saved [event]." and use {"action":"ask","question":""} — do NOT ask what to schedule next.
-    3. If the user says "okay" or "ok" after an event was just saved, treat it as acknowledgment only. Do NOT save again. Do NOT ask what to schedule next. Just reply "Let me know if there's anything else!" and use {"action":"ask","question":""}.
-    4. "whole day", "all day", "entire day" means the user has not given a time — ask for a specific time, do not default to 00:00.
-    5. Never explain your reasoning or thought process. Be direct and conversational.
-    6. When proposing an event, state it in ONE short sentence: "Got it — [title] on [date] at [time] ([category]). Should I save this?"
-    7. If time is missing, ask for it before proposing. Never propose with "unknown time".
-    8. Never reveal internal JSON or processing to the user.
-    9. Never ask "what would you like to schedule?" repeatedly. If the user seems done, just say "Let me know if you need anything else!"
-    10. Keep track of context — if an event was just saved, don't offer to save it again.
+    2. The app performs the actual database save — you do NOT. When the user confirms a proposed event, you MUST return {"action":"save","event":{...}} with the exact proposed details. Never say "Done! I've saved" — the app shows confirmation after the real save.
+    3. Use {"action":"ask",...} only while gathering info or asking "Should I save this?". Never use action:ask to mean an event was saved.
+    4. If the user says "okay" or "ok" after an event was just saved, treat it as acknowledgment only. Reply "Let me know if there's anything else!" with {"action":"ask","question":""}.
+    5. "whole day", "all day", "entire day" means the user has not given a time — ask for a specific time, do not default to 00:00.
+    6. Never explain your reasoning or thought process. Be direct and conversational.
+    7. When proposing an event, state it in ONE short sentence: "Got it — [title] on [date] at [time] ([category]). Should I save this?"
+    8. If time is missing, ask for it before proposing. Never propose with "unknown time".
+    9. Never reveal internal JSON or processing to the user.
+    10. Never ask "what would you like to schedule?" repeatedly. If the user seems done, just say "Let me know if you need anything else!"
     11. When the user asks how many events they have, what's on their schedule, or anything about existing events, answer ONLY from the "Current events" list below. If it says "none", they have no saved events — do NOT infer events from earlier chat messages.
 
     Respond with ONE short natural sentence, then on a new line the JSON object. Nothing else.
@@ -507,15 +537,28 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         { role: 'user', content: userInput },
       ]
 
+      const pendingProposal = extractPendingProposal(aiConversation)
+      const userConfirmed = isConfirmation(userInput)
+
       const aiText = await getGroqReply(messages)
       const { json: aiResponse, text: aiDisplay } = parseAIJsonResponse(aiText)
 
-      if (aiResponse?.action === 'save') {
-        const savedEvent = await saveEventFromAI(aiResponse.event)
+      const eventToSave = aiResponse?.action === 'save' && aiResponse.event?.title
+        ? aiResponse.event
+        : userConfirmed && pendingProposal
+          ? pendingProposal
+          : null
+
+      if (eventToSave) {
+        if (!aiResponse?.event?.title && pendingProposal) {
+          console.warn('AI returned non-save action on confirmation; saving pending proposal instead.', aiResponse)
+        }
+
+        const savedEvent = await saveEventFromAI(eventToSave)
         if (savedEvent) {
           setEvents((prev) => sortEventsByDateTime([...prev.filter((event) => event.id !== savedEvent.id), savedEvent]))
           scheduleEventReminder(savedEvent)
-          updateLastMessage(`Done! I've saved ${savedEvent.title}.`)
+          updateLastMessage(`Done! I've saved ${savedEvent.title} on ${savedEvent.date} at ${savedEvent.time} (${savedEvent.category}).`)
         } else {
           updateLastMessage('I understood the event but could not save it. Please try again.')
         }
@@ -537,7 +580,12 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           updateLastMessage('I could not find or update any matching event. Please give more exact details.')
         }
       } else if (aiResponse?.action === 'ask') {
-        updateLastMessage(aiDisplay || aiResponse.question || 'Could you provide more details?')
+        const reply = aiDisplay || aiResponse.question || 'Could you provide more details?'
+        if (/done!?\s+i['']?ve saved/i.test(reply)) {
+          updateLastMessage('I understood the event but could not save it. Please try again.')
+        } else {
+          updateLastMessage(reply)
+        }
       } else {
         // Show the conversational portion only (JSON is stripped by parser)
         updateLastMessage(aiDisplay || aiText || 'Sorry, I did not understand that.')
