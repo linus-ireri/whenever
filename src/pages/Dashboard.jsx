@@ -2,7 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import DashboardAI from './DashboardAI'
-import { ensurePushSubscription, getNotificationStatus, scheduleEventReminder, cancelLocalReminder } from '../notifications'
+import {
+  ensurePushSubscription,
+  requestNotificationPermissionAndSubscribe,
+  getNotificationStatus,
+  scheduleEventReminder,
+  cancelLocalReminder,
+} from '../notifications'
 
 const CATEGORIES = {
   work:     { label: 'Work',     icon: '💼', color: '#E8C547', bg: '#1a1608' },
@@ -357,9 +363,6 @@ export default function Dashboard() {
     async function initNotifications() {
       const initial = await getNotificationStatus()
       setNotificationStatus(initial)
-      await ensurePushSubscription(user.id)
-      const next = await getNotificationStatus()
-      setNotificationStatus(next)
     }
 
     initNotifications()
@@ -368,6 +371,14 @@ export default function Dashboard() {
   async function refreshNotificationStatus() {
     const status = await getNotificationStatus()
     setNotificationStatus(status)
+  }
+
+  async function enableNotifications() {
+    if (!user?.id) return
+    setNotificationStatus({ ...notificationStatus, message: 'Requesting notification permission...' })
+    await requestNotificationPermissionAndSubscribe(user.id)
+    const updated = await getNotificationStatus()
+    setNotificationStatus(updated)
   }
 
   async function fetchEvents() {
@@ -665,6 +676,23 @@ export default function Dashboard() {
             }}>
               <strong>Notifications:</strong> {notificationStatus.message}
             </span>
+            {notificationStatus.permission !== 'granted' && notificationStatus.supported && (
+              <button
+                type="button"
+                onClick={enableNotifications}
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 12px',
+                  borderRadius: '999px',
+                  border: `1px solid ${themeVars.surfaceBorder}`,
+                  background: themeVars.accent,
+                  color: themeVars.accentText,
+                  cursor: 'pointer',
+                }}
+              >
+                Enable notifications
+              </button>
+            )}
             <button
               type="button"
               onClick={refreshNotificationStatus}

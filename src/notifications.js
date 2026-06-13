@@ -265,6 +265,20 @@ async function sendSubscriptionToServer(userId, subscription) {
   }
 }
 
+export async function requestNotificationPermissionAndSubscribe(userId) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const permission = await requestNotificationPermission()
+  if (permission !== 'granted') {
+    console.warn('[Notifications] Notification permission not granted.')
+    return
+  }
+
+  return ensurePushSubscription(userId)
+}
+
 export async function ensurePushSubscription(userId) {
   if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
     console.warn('[Notifications] Push subscription unavailable: service worker or PushManager not supported in this browser.')
@@ -285,9 +299,8 @@ export async function ensurePushSubscription(userId) {
     return
   }
 
-  const permission = await requestNotificationPermission()
-  if (permission !== 'granted') {
-    console.warn('[Notifications] Notification permission not granted.')
+  if (Notification.permission !== 'granted') {
+    console.warn('[Notifications] Permission is not granted; skipping push subscription until user explicitly enables notifications.')
     return
   }
 
