@@ -1041,8 +1041,8 @@ Current events: ${existingEvents || 'none'}`
             borderTop: `1px solid ${themeVars.surfaceBorder}`,
           }}
         >
-          <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <input
                 type="text"
                 value={aiInput}
@@ -1065,56 +1065,53 @@ Current events: ${existingEvents || 'none'}`
                   outline: 'none',
                 }}
               />
-              <div
+              <button
+                type="button"
+                onClick={startVoiceInput}
+                title="Voice input"
                 style={{
-                  fontSize: '11px',
-                  color: aiInput.length > 450 ? '#f07070' : themeVars.muted,
-                  textAlign: 'right',
-                  paddingRight: '4px',
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '12px',
+                  border: `1px solid ${themeVars.inputBorder}`,
+                  background: themeVars.inputBg,
+                  cursor: 'pointer',
+                  fontSize: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                {aiInput.length}/500
-              </div>
+                🎙️
+              </button>
+              <button
+                type="submit"
+                disabled={aiLoading || !aiInput.trim()}
+                style={{
+                  padding: '14px 18px',
+                  background: aiLoading ? '#999' : themeVars.actionBg,
+                  color: themeVars.actionText,
+                  border: 'none',
+                  borderRadius: '14px',
+                  fontSize: '15px',
+                  fontWeight: '700',
+                  cursor: aiLoading || !aiInput.trim() ? 'not-allowed' : 'pointer',
+                  fontFamily: 'DM Sans, sans-serif',
+                  flexShrink: 0,
+                }}
+              >
+                {aiLoading ? '...' : 'OK'}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={startVoiceInput}
-              title="Voice input"
-              style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '14px',
-                border: `1px solid ${themeVars.inputBorder}`,
-                background: themeVars.inputBg,
-                color: themeVars.pageText,
-                cursor: 'pointer',
-                fontSize: '18px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              🎙️
-            </button>
-            <button
-              type="submit"
-              disabled={aiLoading || !aiInput.trim()}
-              style={{
-                minWidth: '110px',
-                padding: '14px 18px',
-                background: aiLoading ? '#999' : themeVars.actionBg,
-                color: themeVars.actionText,
-                border: 'none',
-                borderRadius: '14px',
-                fontSize: '15px',
-                fontWeight: '700',
-                cursor: aiLoading || !aiInput.trim() ? 'not-allowed' : 'pointer',
-                fontFamily: 'DM Sans, sans-serif',
-              }}
-            >
-              {aiLoading ? 'Processing…' : 'OK'}
-            </button>
+            <div style={{
+              fontSize: '11px',
+              color: aiInput.length > 450 ? '#f07070' : themeVars.muted,
+              textAlign: 'right',
+              paddingRight: '4px',
+            }}>
+              {aiInput.length}/500
+            </div>
           </div>
         </form>
       </div>
