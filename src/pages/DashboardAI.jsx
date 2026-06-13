@@ -124,7 +124,9 @@ const parseAIJsonResponse = (text) => {
       return 'Okay, I will delete the matching event.'
     }
     if (action === 'ask') {
-      return response.question ? response.question.trim() : 'Can you provide more details?'
+      const q = response.question?.trim()
+      if (!q) return ''
+      return q
     }
     return ''
   }
@@ -147,7 +149,7 @@ const parseAIJsonResponse = (text) => {
   }
 }
 
-export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars }) {
+export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars, onEventChange }) {
   const [aiInput, setAiInput] = useState('')
   const [aiConversation, setAiConversation] = useState([])
   const [chatSessions, setChatSessions] = useState([])
@@ -504,7 +506,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         const savedEvent = await saveEventFromAI(aiResponse.event)
         if (savedEvent) {
           setEvents((prev) => [...prev, savedEvent].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)))
-          updateLastMessage(`Event saved successfully: ${savedEvent.title} on ${savedEvent.date} at ${savedEvent.time}.`)
+          onEventChange?.()
+          updateLastMessage(`Done! I've saved ${savedEvent.title}.`)
         } else {
           updateLastMessage('I understood the event but could not save it. Please try again.')
         }
@@ -512,7 +515,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         const deletedIds = await deleteEventFromAI(aiResponse.criteria)
         if (deletedIds?.length) {
           setEvents((prev) => prev.filter((event) => !deletedIds.includes(event.id)))
-          updateLastMessage(`Deleted ${deletedIds.length} matching event(s).`)
+          onEventChange?.()
+          updateLastMessage(`Done! Deleted ${deletedIds.length} event(s).`)
         } else {
           updateLastMessage('I could not find an event to delete with those details.')
         }
@@ -520,7 +524,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         const updatedEvent = await updateEventFromAI(aiResponse.criteria, aiResponse.event)
         if (updatedEvent) {
           setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)))
-          updateLastMessage(`Updated event to ${updatedEvent.title} on ${updatedEvent.date} at ${updatedEvent.time}.`)
+          onEventChange?.()
+          updateLastMessage(`Done! I've updated ${updatedEvent.title}.`)
         } else {
           updateLastMessage('I could not find or update any matching event. Please give more exact details.')
         }
@@ -537,33 +542,39 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
   }
 
   const saveEventFromAI = async (eventData) => {
-    if (!eventData?.title || !eventData?.category || !eventData?.date || !eventData?.time) {
+    // Basic validation and normalization
+    if (!eventData?.title || !eventData?.date || !eventData?.time) {
       console.error('Invalid event data from AI:', eventData)
       return null
     }
 
-    const { data, error } = await supabase
-      .from('events')
-      .insert([
-        {
-          user_id: userId,
-          title: eventData.title,
-          category: eventData.category,
-          date: eventData.date,
-          time: eventData.time,
-          notify_before: 15,
-          status: 'upcoming',
-        },
-      ])
-      .select()
-      .single()
+    const normalizedTime = String(eventData.time || '').trim().slice(0, 5) // keep HH:MM
+    const category = eventData.category || 'personal'
 
-    if (error) {
-      console.error('Error saving event:', error)
+    try {
+      const payload = {
+        user_id: userId,
+        title: eventData.title,
+        category,
+        date: eventData.date,
+        time: normalizedTime,
+        notify_before: 15,
+        status: 'upcoming',
+      }
+
+      const { data, error } = await supabase.from('events').insert([payload]).select().single()
+
+      if (error) {
+        console.error('Error saving event:', error, { payload })
+        return null
+      }
+
+      console.debug('Event saved to supabase:', data)
+      return data
+    } catch (err) {
+      console.error('Unexpected error saving event:', err, { eventData })
       return null
     }
-
-    return data
   }
 
   const findMatchingEvents = (criteria) => {

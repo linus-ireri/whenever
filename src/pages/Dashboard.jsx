@@ -914,6 +914,7 @@ export default function Dashboard() {
         setEvents={setEvents}
         userId={user.id}
         themeVars={themeVars}
+        onEventChange={fetchEvents}
       />
 
       {/* Logout Confirmation Modal */}
