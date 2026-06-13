@@ -902,9 +902,34 @@ Current events: ${existingEvents || 'none'}`
       >
         <div ref={chatContainerRef} style={{ flex: 1, overflowY: 'auto', minHeight: 0, paddingBottom: '10px' }}>
           {aiConversation.length === 0 ? (
-            <p style={{ color: themeVars.muted, fontStyle: 'italic' }}>
-              Type your event details and let the AI help you create it.
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p style={{ color: themeVars.muted, fontSize: '13px', marginBottom: '12px' }}>
+                Try saying:
+              </p>
+              {[
+                'Schedule a team meeting tomorrow at 10am',
+                'Remind me to call John on Friday at 3pm',
+                'Add a travel event next Monday',
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => setAiInput(suggestion)}
+                  style={{
+                    textAlign: 'left',
+                    padding: '10px 14px',
+                    borderRadius: '12px',
+                    border: `1px solid ${themeVars.surfaceBorder}`,
+                    background: 'transparent',
+                    color: themeVars.muted,
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontFamily: 'DM Sans, sans-serif',
+                  }}
+                >
+                  "{suggestion}"
+                </button>
+              ))}
+            </div>
           ) : (
             aiConversation.map((msg, i) => {
               const previousTimestamp =
@@ -1017,28 +1042,33 @@ Current events: ${existingEvents || 'none'}`
           }}
         >
           <div style={{ display: 'flex', gap: '12px', alignItems: 'stretch' }}>
-            <input
-              type="text"
-              value={aiInput}
-              onChange={(e) => {
-                setAiInput(e.target.value)
-                setShowChatMenu(false)
-              }}
-              onFocus={() => setShowChatMenu(false)}
-              placeholder="Type your event details and click OK"
-              style={{
-                flex: 1,
-                minWidth: 0,
-                padding: '14px 16px',
-                borderRadius: '14px',
-                border: `1px solid ${themeVars.inputBorder}`,
-                background: themeVars.inputBg,
-                color: themeVars.pageText,
-                fontSize: '14px',
-                fontFamily: 'DM Sans, sans-serif',
-                outline: 'none',
-              }}
-            />
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <input
+                type="text"
+                value={aiInput}
+                onChange={(e) => {
+                  setAiInput(e.target.value)
+                  setShowChatMenu(false)
+                }}
+                onFocus={() => setShowChatMenu(false)}
+                placeholder="Type your event details and click OK"
+                style={{
+                  width: '100%',
+                  minWidth: 0,
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  border: `1px solid ${themeVars.inputBorder}`,
+                  background: themeVars.inputBg,
+                  color: themeVars.pageText,
+                  fontSize: '14px',
+                  fontFamily: 'DM Sans, sans-serif',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ fontSize: '11px', color: themeVars.muted, textAlign: 'right', marginTop: '4px' }}>
+                {aiInput.length}/500
+              </div>
+            </div>
             <button
               type="button"
               onClick={startVoiceInput}
