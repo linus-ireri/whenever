@@ -397,6 +397,18 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
     setAiLoading(false)
   }
 
+  const startVoiceInput = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) return alert('Voice not supported in this browser')
+
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-US'
+    recognition.onresult = (e) => {
+      setAiInput(e.results[0][0].transcript)
+    }
+    recognition.start()
+  }
+
   const processWithAI = async (userInput) => {
     const updateLastMessage = (aiReply) => {
       updateActiveChatMessages((prev) => {
@@ -438,10 +450,35 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         .map((e) => `${e.title} on ${e.date} at ${e.time} (${e.category})`)
         .join(', ')
       const now = new Date()
-      const currentTime = now.toLocaleString()
       const currentDate = now.toISOString().slice(0, 10)
+      const currentYear = now.getFullYear()
 
-      const systemPrompt = `You are a friendly, conversational AI scheduling assistant that naturally engages with users while helping them manage their calendar. Maintain context from previous messages and correctly resolve references like "it", "that event", or "move it". Respond first with one plain, user-facing sentence or a short paragraph.\n\nAfter that, on a new line, include exactly one machine-readable JSON object with no markdown, no code fences, and no extra formatting. The JSON object should contain one of the following actions: \n- save\n- update\n- delete\n- ask\n\nIf saving, include:\n{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf updating, include:\n{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf deleting, include:\n{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD","time":"HH:MM"}}\n\nIf details are missing, ask one follow-up question in natural language and also include an action:\n{"action":"ask","question":"What date should I use for this event?"}\n\nDo not include any internal tool outputs or diagnostics. The UI will hide the JSON object from users; keep the visible reply natural and concise.`
+      const systemPrompt = `You are a friendly AI scheduling assistant. Today's date is ${currentDate} (${currentYear}). Always use ${currentYear} for any dates unless explicitly told otherwise.
+
+IMPORTANT RULES:
+1. NEVER use "save", "update", or "delete" action unless the user has EXPLICITLY confirmed. Words like "okay", "hmm", "sure" are NOT confirmation.
+2. Only save when the user says "yes", "save it", "add it", "schedule it", "confirm", "go ahead", "yes save", "schedule".
+3. Never explain your reasoning or thought process. Be direct and conversational.
+4. Never say things like "I will translate that into an exact date" or "I'd like to confirm all the details" — just DO it in one short sentence.
+5. When proposing an event, state it in ONE short sentence like: "Got it — wash my son on June 13 at 6:35 PM (personal). Should I save this?"
+6. If any detail is missing, ask ONE short question only.
+7. Never reveal internal processing or JSON structure to the user.
+
+Respond with ONE short natural sentence, then on a new line the JSON object. Nothing else.
+
+If gathering info or waiting for confirmation:
+{"action":"ask","question":"..."}
+
+If saving (only after explicit confirmation):
+{"action":"save","event":{"title":"...","category":"work|family|call|travel|personal","date":"YYYY-MM-DD","time":"HH:MM"}}
+
+If updating (only after explicit confirmation):
+{"action":"update","criteria":{"title":"...","date":"YYYY-MM-DD"},"event":{"title":"...","category":"...","date":"YYYY-MM-DD","time":"HH:MM"}}
+
+If deleting (only after explicit confirmation):
+{"action":"delete","criteria":{"title":"...","date":"YYYY-MM-DD"}}
+
+Current events: ${existingEvents || 'none'}`
 
       const historyMessages = aiConversation
         .slice(-25)
@@ -970,6 +1007,26 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
                 outline: 'none',
               }}
             />
+            <button
+              type="button"
+              onClick={startVoiceInput}
+              style={{
+                width: '48px',
+                padding: '0 12px',
+                borderRadius: '14px',
+                border: `1px solid ${themeVars.inputBorder}`,
+                background: themeVars.surface,
+                color: themeVars.pageText,
+                cursor: 'pointer',
+                fontSize: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              aria-label="Start voice input"
+            >
+              🎤
+            </button>
             <button
               type="submit"
               disabled={aiLoading || !aiInput.trim()}
