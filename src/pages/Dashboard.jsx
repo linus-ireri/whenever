@@ -9,6 +9,7 @@ import {
   scheduleEventReminder,
   cancelLocalReminder,
 } from '../notifications'
+import { getLocalDateString } from '../dateTime'
 
 const CATEGORIES = {
   work:     { label: 'Work',     icon: '💼', color: '#E8C547', bg: '#1a1608' },
@@ -771,7 +772,7 @@ export default function Dashboard() {
         {/* Stats row */}
         <div className="stats-row" style={{ marginBottom: '36px' }}>
           {[
-            { num: events.filter(e => e.date === new Date().toISOString().split('T')[0]).length, label: 'Today' },
+            { num: events.filter(e => e.date === getLocalDateString()).length, label: 'Today' },
             { num: events.length, label: 'Total' },
             { num: events.filter(e => e.category === 'work').length, label: 'Work' },
             { num: events.filter(e => e.category === 'travel').length, label: 'Travel' },

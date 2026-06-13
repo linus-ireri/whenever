@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { scheduleEventReminder } from '../notifications'
+import { getNowContext } from '../dateTime'
 
 const groqApiKey = import.meta.env.VITE_GROQ_API_KEY || ''
 
@@ -489,10 +490,24 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         .map((e) => `${e.title} on ${e.date} at ${e.time} (${e.category})`)
         .join(', ')
       const now = new Date()
-      const currentDate = now.toISOString().slice(0, 10)
-      const currentYear = now.getFullYear()
+      const {
+        localDate,
+        localTime,
+        localWeekday,
+        gmtDate,
+        gmtTime,
+        timezone,
+        year: currentYear,
+      } = getNowContext(now)
 
-      const systemPrompt = `You are a friendly AI scheduling assistant. Today's date is ${currentDate} (${currentYear}). Always use ${currentYear} for any dates unless explicitly told otherwise.
+      const systemPrompt = `You are a friendly AI scheduling assistant.
+
+    CURRENT TIME (use this for all date/time reasoning):
+    - User local: ${localWeekday}, ${localDate} at ${localTime} (${timezone})
+    - GMT/UTC: ${gmtDate} at ${gmtTime}
+
+    When the user says "today", "tonight", or "tomorrow", interpret it from their LOCAL date and time above — not GMT alone.
+    Always use ${currentYear} for any dates unless explicitly told otherwise.
 
     IMPORTANT RULES:
     1. NEVER save, update, or delete unless the user explicitly says "yes", "save it", "add it", "schedule it", "confirm", or "go ahead". "okay", "ok", "hmm", "sure", "alright" alone are NOT confirmation to save.
