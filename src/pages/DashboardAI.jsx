@@ -636,6 +636,34 @@ Current events: ${existingEvents || 'none'}`
               padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
             }
           }
+
+          @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+          }
+
+          .typing-indicator {
+            display: inline-flex;
+            gap: 4px;
+            margin-left: 8px;
+          }
+
+          .typing-indicator .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            opacity: 0;
+            animation: blink 1.4s infinite;
+          }
+
+          .typing-indicator .dot:nth-child(2) {
+            animation-delay: 0.2s;
+          }
+
+          .typing-indicator .dot:nth-child(3) {
+            animation-delay: 0.4s;
+          }
         `}
       </style>
       <div
@@ -939,7 +967,11 @@ Current events: ${existingEvents || 'none'}`
                       }}
                     >
                       <strong>AI is typing</strong>
-                      <span style={{ marginLeft: '8px', opacity: 0.75 }}>• • •</span>
+                      <span className="typing-indicator">
+                        <span className="dot" />
+                        <span className="dot" />
+                        <span className="dot" />
+                      </span>
                     </div>
                   ) : (
                     <div
