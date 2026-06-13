@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import DashboardAI from './DashboardAI'
+import { ensurePushSubscription, getNotificationStatus, scheduleEventReminder, cancelLocalReminder } from '../notifications'
 
 const CATEGORIES = {
   work:     { label: 'Work',     icon: '💼', color: '#E8C547', bg: '#1a1608' },
@@ -116,6 +117,10 @@ export default function Dashboard() {
   const [expandCategories, setExpandCategories] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showAIAssistant, setShowAIAssistant] = useState(false)
+  const [notificationStatus, setNotificationStatus] = useState({
+    status: 'unknown',
+    message: 'Loading notification status...',
+  })
   const themeVars = THEME_PALETTES[theme]
   const themedInputStyle = {
     ...baseInputStyle,
@@ -346,6 +351,25 @@ export default function Dashboard() {
 
   useEffect(() => { fetchEvents() }, [])
 
+  useEffect(() => {
+    if (!user?.id) return
+
+    async function initNotifications() {
+      const initial = await getNotificationStatus()
+      setNotificationStatus(initial)
+      await ensurePushSubscription(user.id)
+      const next = await getNotificationStatus()
+      setNotificationStatus(next)
+    }
+
+    initNotifications()
+  }, [user])
+
+  async function refreshNotificationStatus() {
+    const status = await getNotificationStatus()
+    setNotificationStatus(status)
+  }
+
   async function fetchEvents() {
     setLoading(true)
     const { data, error } = await supabase
@@ -359,7 +383,10 @@ export default function Dashboard() {
 
   async function deleteEvent(id) {
     const { error } = await supabase.from('events').delete().eq('id', id)
-    if (!error) setEvents(events.filter(e => e.id !== id))
+    if (!error) {
+      cancelLocalReminder(id)
+      setEvents(events.filter(e => e.id !== id))
+    }
   }
 
   async function updateEvent(e) {
@@ -390,6 +417,9 @@ export default function Dashboard() {
         alert(`Failed to update event: ${error.message}`)
         return
       }
+
+      // Re-schedule notification for the updated event
+      scheduleEventReminder(editingEvent)
 
       // Update local state
       setEvents(events.map(ev => ev.id === editingEvent.id ? editingEvent : ev))
@@ -620,6 +650,37 @@ export default function Dashboard() {
           <p style={{ color: themeVars.textSecondary, fontSize: '14px' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
+            <span style={{
+              fontSize: '12px',
+              color: themeVars.pageText,
+              background: theme === 'dark' ? '#222' : '#f2f0e6',
+              border: `1px solid ${themeVars.surfaceBorder}`,
+              borderRadius: '999px',
+              padding: '8px 12px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <strong>Notifications:</strong> {notificationStatus.message}
+            </span>
+            <button
+              type="button"
+              onClick={refreshNotificationStatus}
+              style={{
+                fontSize: '12px',
+                padding: '8px 12px',
+                borderRadius: '999px',
+                border: `1px solid ${themeVars.surfaceBorder}`,
+                background: themeVars.surface,
+                color: themeVars.pageText,
+                cursor: 'pointer',
+              }}
+            >
+              Refresh
+            </button>
+          </div>
         </div>
 
         {/* Stats row */}
@@ -917,7 +978,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
       return
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('events')
       .insert([{
         user_id: userId,
@@ -928,10 +989,14 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
         notify_before: 15,
         status: 'upcoming'
       }])
+      .select()
+      .single()
 
     if (error) {
       setMessage('Something went wrong, try again')
     } else {
+      const scheduledEvent = data || { user_id: userId, title, category, date, time, notify_before: 15, status: 'upcoming' }
+      scheduleEventReminder(scheduledEvent)
       setMessage('Event added!')
       setTitle('')
       setCategory('')
