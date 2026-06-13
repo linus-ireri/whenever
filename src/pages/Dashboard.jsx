@@ -370,6 +370,15 @@ export default function Dashboard() {
 
   async function refreshNotificationStatus() {
     const status = await getNotificationStatus()
+
+    if (status.permission === 'granted' && !status.subscription && user?.id) {
+      setNotificationStatus({ ...status, message: 'Permission granted — subscribing...' })
+      await ensurePushSubscription(user.id)
+      const updated = await getNotificationStatus()
+      setNotificationStatus(updated)
+      return
+    }
+
     setNotificationStatus(status)
   }
 

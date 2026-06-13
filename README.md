@@ -46,35 +46,62 @@ Week 1 establishes the full foundation: authentication, database, and complete C
 
 ```
 whenever/
-├── public/
-├── src/
+├── api/                          # Vercel serverless API routes
+│   ├── qstash-schedule.js        # Schedule jobs via Upstash QStash
+│   ├── save-subscription.js      # Store push subscriptions in Supabase
+│   └── send-notification.js      # Send Web Push notifications from Supabase subscriptions
+├── public/                       # Static public files
+│   └── service-worker.js         # Browser Push service worker
+├── src/                          # App source code
+│   ├── assets/                   # Static images and icons
 │   ├── context/
-│   │   └── AuthContext.jsx       # Global auth state management
+│   │   └── AuthContext.jsx       # Auth provider and session state
 │   ├── pages/
+│   │   ├── Dashboard.jsx         # Main app page and event management UI
+│   │   ├── DashboardAI.jsx       # AI assistant / smart input UI
+│   │   ├── ForgotPassword.jsx    # Password recovery page
 │   │   ├── Login.jsx             # Login page
-│   │   ├── Signup.jsx            # Signup page
-│   │   └── Dashboard.jsx         # Main app page (CRUD events)
-│   ├── App.jsx                   # Routing and route protection
-│   ├── main.jsx                  # App entry point, wraps with AuthProvider
-│   ├── supabaseClient.js         # Supabase connection initializer
+│   │   ├── ResetPassword.jsx     # Reset password page
+│   │   └── Signup.jsx            # Signup page
+│   ├── App.jsx                   # Routing and protected route handling
+│   ├── main.jsx                  # App entry point, mounts React app
+│   ├── notifications.js          # Push notification and scheduling helpers
+│   ├── supabaseClient.js         # Supabase client initialization
+│   ├── App.css                   # Component-level app styles
 │   └── index.css                 # Global styles
-├── .env                          # Environment variables (never commit this)
+├── .env                          # Local environment variables (never commit)
 ├── .gitignore
 ├── index.html
 ├── package.json
-└── vite.config.js
+├── vercel.json                   # Vercel route/build config
+├── vite.config.js
+└── README.md
 ```
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file in the root of your project with the following:
+Create a `.env` file in the root of your project with the following frontend variables:
 
 ```
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-public-key
-VITE_GROQ_API_KEY=your-grok-api-key
+VITE_GROQ_API_KEY=your-groq-api-key
+VITE_VAPID_PUBLIC_KEY=your-vapid-public-key
+VITE_QSTASH_SCHEDULE_URL=https://your-vercel-app.vercel.app/api/qstash-schedule
+VITE_API_BASE_URL=https://your-vercel-app.vercel.app
+```
+
+### Server-only environment variables
+These must only be set in Vercel, not in a public frontend build.
+
+```
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+VAPID_PRIVATE_KEY=your-vapid-private-key
+VAPID_SUBJECT=mailto:admin@whenever.app
+QSTASH_PUBLISH_URL=https://qstash.upstash.io/v1/publish/your-topic
+QSTASH_API_KEY=your-upstash-api-key
 ```
 
 **Where to find these:**
@@ -303,6 +330,15 @@ The app is deployed on **Vercel**.
 4. Add environment variables in Vercel project settings:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_GROQ_API_KEY`
+   - `VITE_VAPID_PUBLIC_KEY`
+   - `VITE_QSTASH_SCHEDULE_URL`
+   - `VITE_API_BASE_URL` (optional if your backend is deployed on a separate origin)
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `VAPID_PRIVATE_KEY`
+   - `VAPID_SUBJECT`
+   - `QSTASH_PUBLISH_URL` (if using scheduled reminders)
+   - `QSTASH_API_KEY` (if using scheduled reminders)
 5. Click Deploy
 
 Every time you push to the `main` branch, Vercel automatically redeploys the app.
@@ -315,6 +351,10 @@ Every time you push to the `main` branch, Vercel automatically redeploys the app
 - During development, you can disable email confirmation in Supabase under **Authentication → Providers → Email** to speed up testing.
 - RLS policies must be set correctly on the `events` table or all database operations will return a 403 error.
 - The `user_id` column uses `auth.uid()` as its default value, which automatically links every new event to the currently logged-in user.
+- Push notifications require a service worker and a valid VAPID public key. Request permission through the dashboard’s notification prompt button rather than automatically on page load.
+- Local development is supported on `http://localhost:5173` because `localhost` is treated as secure for browser push.
+- If your frontend and API are on different origins, set `VITE_API_BASE_URL` to the deployed Vercel URL so the app can reach `/api/save-subscription` correctly.
+- `vercel.json` must route `/api/*` to the serverless functions before falling back to `index.html` so API endpoints like `/api/save-subscription` work correctly.
 
 ---
 
