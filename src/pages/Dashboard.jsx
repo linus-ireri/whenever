@@ -50,7 +50,7 @@ const THEME_PALETTES = {
     sidebarBg: '#111113',
     cardText: '#f0ede6',
     textSecondary: '#999',
-    noEventsText: '#2a2a30',
+    noEventsText: '#f0ede6',
   },
   light: {
     pageBg: '#f5f2eb',
