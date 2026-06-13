@@ -1072,22 +1072,23 @@ Current events: ${existingEvents || 'none'}`
             <button
               type="button"
               onClick={startVoiceInput}
+              title="Voice input"
               style={{
                 width: '48px',
-                padding: '0 12px',
+                height: '48px',
                 borderRadius: '14px',
                 border: `1px solid ${themeVars.inputBorder}`,
-                background: themeVars.surface,
+                background: themeVars.inputBg,
                 color: themeVars.pageText,
                 cursor: 'pointer',
                 fontSize: '18px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                flexShrink: 0,
               }}
-              aria-label="Start voice input"
             >
-              🎤
+              🎙️
             </button>
             <button
               type="submit"
