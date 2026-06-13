@@ -1065,7 +1065,14 @@ Current events: ${existingEvents || 'none'}`
                   outline: 'none',
                 }}
               />
-              <div style={{ fontSize: '11px', color: themeVars.muted, textAlign: 'right', marginTop: '4px' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: aiInput.length > 450 ? '#f07070' : themeVars.muted,
+                  textAlign: 'right',
+                  paddingRight: '4px',
+                }}
+              >
                 {aiInput.length}/500
               </div>
             </div>
