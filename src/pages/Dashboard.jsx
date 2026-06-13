@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import DashboardAI from './DashboardAI'
@@ -116,6 +116,8 @@ export default function Dashboard() {
   const { user } = useAuth()
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(null)
+  const fetchGenerationRef = useRef(0)
   const [editingEvent, setEditingEvent] = useState(null)
   const [savingEdit, setSavingEdit] = useState(false)
   const [activeFilter, setActiveFilter] = useState('all')
@@ -355,8 +357,6 @@ export default function Dashboard() {
     ::-webkit-scrollbar-thumb { background: ${themeVars.scrollThumb}; border-radius: 2px; }
   `
 
-  useEffect(() => { fetchEvents() }, [])
-
   useEffect(() => {
     if (!user?.id) return
 
@@ -390,16 +390,50 @@ export default function Dashboard() {
     setNotificationStatus(updated)
   }
 
-  async function fetchEvents() {
-    setLoading(true)
+  const sortEvents = useCallback((list) => (
+    [...list].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+  ), [])
+
+  const fetchEvents = useCallback(async ({ silent = false } = {}) => {
+    if (!user?.id) return null
+    const generation = ++fetchGenerationRef.current
+    if (!silent) {
+      setLoading(true)
+      setFetchError(null)
+    }
+
     const { data, error } = await supabase
       .from('events')
       .select('*')
       .eq('user_id', user.id)
       .order('date', { ascending: true })
-    if (!error) setEvents(data)
-    setLoading(false)
-  }
+
+    if (generation !== fetchGenerationRef.current) return null
+
+    if (error) {
+      console.error('Error fetching events:', error)
+      if (!silent) {
+        setFetchError('Could not load your events. Try refreshing the page.')
+        setLoading(false)
+      }
+      return null
+    }
+
+    const freshEvents = Array.isArray(data) ? data : []
+    setEvents(freshEvents)
+    if (!silent) setLoading(false)
+    return freshEvents
+  }, [user?.id])
+
+  const handleEventAdded = useCallback((newEvent) => {
+    if (newEvent?.id) {
+      setEvents((prev) => sortEvents([...prev.filter((event) => event.id !== newEvent.id), newEvent]))
+      return
+    }
+    fetchEvents()
+  }, [fetchEvents, sortEvents])
+
+  useEffect(() => { fetchEvents() }, [fetchEvents])
 
   async function deleteEvent(id) {
     const { error } = await supabase.from('events').delete().eq('id', id)
@@ -720,6 +754,20 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {fetchError && (
+          <div style={{
+            marginBottom: '16px',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            border: `1px solid ${theme === 'dark' ? '#5a3a12' : '#d4b86a'}`,
+            background: theme === 'dark' ? '#1a1608' : '#faf3dc',
+            color: themeVars.pageText,
+            fontSize: '13px',
+          }}>
+            {fetchError}
+          </div>
+        )}
+
         {/* Stats row */}
         <div className="stats-row" style={{ marginBottom: '36px' }}>
           {[
@@ -904,7 +952,7 @@ export default function Dashboard() {
         })}
 
         {/* Add Event Form */}
-        <AddEventForm onEventAdded={fetchEvents} userId={user.id} themeVars={themeVars} />
+        <AddEventForm onEventAdded={handleEventAdded} userId={user.id} themeVars={themeVars} />
       </main>
 
       <DashboardAI
@@ -914,7 +962,7 @@ export default function Dashboard() {
         setEvents={setEvents}
         userId={user.id}
         themeVars={themeVars}
-        onEventChange={fetchEvents}
+        refreshEvents={() => fetchEvents({ silent: true })}
       />
 
       {/* Logout Confirmation Modal */}
@@ -1042,7 +1090,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
       setDateDraft('')
       setTime('')
       setTimeDraft('')
-      onEventAdded()
+      onEventAdded(scheduledEvent)
     }
 
     setLoading(false)

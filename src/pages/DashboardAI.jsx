@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabaseClient'
+import { scheduleEventReminder } from '../notifications'
 
 const groqApiKey = import.meta.env.VITE_GROQ_API_KEY || ''
 
@@ -149,7 +150,7 @@ const parseAIJsonResponse = (text) => {
   }
 }
 
-export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars, onEventChange }) {
+export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars, refreshEvents }) {
   const [aiInput, setAiInput] = useState('')
   const [aiConversation, setAiConversation] = useState([])
   const [chatSessions, setChatSessions] = useState([])
@@ -162,6 +163,10 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
   const menuContainerRef = useRef(null)
 
   const storageKey = `whenever-ai-chats-${userId || 'guest'}`
+
+  const sortEventsByDateTime = (list) => (
+    [...list].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
+  )
 
   const saveChatSessions = (sessions) => {
     try {
@@ -448,7 +453,9 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
     }
 
     try {
-      const existingEvents = events
+      const refreshedEvents = await refreshEvents?.()
+      const authoritativeEvents = Array.isArray(refreshedEvents) ? refreshedEvents : events
+      const existingEvents = authoritativeEvents
         .map((e) => `${e.title} on ${e.date} at ${e.time} (${e.category})`)
         .join(', ')
       const now = new Date()
@@ -468,6 +475,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
     8. Never reveal internal JSON or processing to the user.
     9. Never ask "what would you like to schedule?" repeatedly. If the user seems done, just say "Let me know if you need anything else!"
     10. Keep track of context — if an event was just saved, don't offer to save it again.
+    11. When the user asks how many events they have, what's on their schedule, or anything about existing events, answer ONLY from the "Current events" list below. If it says "none", they have no saved events — do NOT infer events from earlier chat messages.
 
     Respond with ONE short natural sentence, then on a new line the JSON object. Nothing else.
 
@@ -505,8 +513,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       if (aiResponse?.action === 'save') {
         const savedEvent = await saveEventFromAI(aiResponse.event)
         if (savedEvent) {
-          setEvents((prev) => [...prev, savedEvent].sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)))
-          onEventChange?.()
+          setEvents((prev) => sortEventsByDateTime([...prev.filter((event) => event.id !== savedEvent.id), savedEvent]))
+          scheduleEventReminder(savedEvent)
           updateLastMessage(`Done! I've saved ${savedEvent.title}.`)
         } else {
           updateLastMessage('I understood the event but could not save it. Please try again.')
@@ -515,7 +523,6 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         const deletedIds = await deleteEventFromAI(aiResponse.criteria)
         if (deletedIds?.length) {
           setEvents((prev) => prev.filter((event) => !deletedIds.includes(event.id)))
-          onEventChange?.()
           updateLastMessage(`Done! Deleted ${deletedIds.length} event(s).`)
         } else {
           updateLastMessage('I could not find an event to delete with those details.')
@@ -523,8 +530,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
       } else if (aiResponse?.action === 'update') {
         const updatedEvent = await updateEventFromAI(aiResponse.criteria, aiResponse.event)
         if (updatedEvent) {
-          setEvents((prev) => prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event)).sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time)))
-          onEventChange?.()
+          setEvents((prev) => sortEventsByDateTime(prev.map((event) => (event.id === updatedEvent.id ? updatedEvent : event))))
+          scheduleEventReminder(updatedEvent)
           updateLastMessage(`Done! I've updated ${updatedEvent.title}.`)
         } else {
           updateLastMessage('I could not find or update any matching event. Please give more exact details.')
@@ -588,11 +595,31 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
     })
   }
 
-  const deleteEventFromAI = async (criteria) => {
-    const matches = findMatchingEvents(criteria)
-    if (!matches.length) return null
+  const queryEventIdsFromCriteria = async (criteria) => {
+    if (!criteria) return []
 
-    const ids = matches.map((event) => event.id)
+    const localMatches = findMatchingEvents(criteria)
+    if (localMatches.length) return localMatches.map((event) => event.id)
+
+    let query = supabase.from('events').select('id').eq('user_id', userId)
+    if (criteria.title) query = query.eq('title', criteria.title)
+    if (criteria.date) query = query.eq('date', criteria.date)
+    if (criteria.time) query = query.eq('time', criteria.time)
+    if (criteria.category) query = query.eq('category', criteria.category)
+
+    const { data, error } = await query
+    if (error) {
+      console.error('Error querying events for criteria:', error, criteria)
+      return []
+    }
+
+    return Array.isArray(data) ? data.map((event) => event.id) : []
+  }
+
+  const deleteEventFromAI = async (criteria) => {
+    const ids = await queryEventIdsFromCriteria(criteria)
+    if (!ids.length) return null
+
     const { error } = await supabase.from('events').delete().in('id', ids).eq('user_id', userId)
 
     if (error) {
@@ -604,21 +631,36 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
   }
 
   const updateEventFromAI = async (criteria, updateData) => {
-    const matches = findMatchingEvents(criteria)
-    if (!matches.length) return null
+    const ids = await queryEventIdsFromCriteria(criteria)
+    if (!ids.length) return null
 
-    const eventToUpdate = matches[0]
+    const eventId = ids[0]
+    let eventToUpdate = events.find((event) => event.id === eventId)
+    if (!eventToUpdate) {
+      const { data: existingEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .eq('user_id', userId)
+        .single()
+      if (fetchError) {
+        console.error('Error fetching existing event for update:', fetchError)
+        return null
+      }
+      eventToUpdate = existingEvent
+    }
+
     const updatedValues = {
-      title: updateData?.title || eventToUpdate.title,
-      category: updateData?.category || eventToUpdate.category,
-      date: updateData?.date || eventToUpdate.date,
-      time: updateData?.time || eventToUpdate.time,
+      title: updateData?.title || eventToUpdate?.title || '',
+      category: updateData?.category || eventToUpdate?.category || 'personal',
+      date: updateData?.date || eventToUpdate?.date || '',
+      time: updateData?.time || eventToUpdate?.time || '',
     }
 
     const { data, error } = await supabase
       .from('events')
       .update(updatedValues)
-      .eq('id', eventToUpdate.id)
+      .eq('id', eventId)
       .eq('user_id', userId)
       .select()
       .single()
