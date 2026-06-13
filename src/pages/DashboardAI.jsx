@@ -1051,16 +1051,16 @@ Current events: ${existingEvents || 'none'}`
                   setShowChatMenu(false)
                 }}
                 onFocus={() => setShowChatMenu(false)}
-                placeholder="Type your event details and click OK"
+                placeholder="Schedule an event..."
                 style={{
-                  width: '100%',
+                  flex: 1,
                   minWidth: 0,
                   padding: '14px 16px',
                   borderRadius: '14px',
-                  border: `1px solid ${themeVars.inputBorder}`,
+                  border: `2px solid ${themeVars.accent}`,
                   background: themeVars.inputBg,
                   color: themeVars.pageText,
-                  fontSize: '14px',
+                  fontSize: '15px',
                   fontFamily: 'DM Sans, sans-serif',
                   outline: 'none',
                 }}
