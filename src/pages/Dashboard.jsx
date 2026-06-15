@@ -881,7 +881,7 @@ export default function Dashboard() {
               disabled={!canToggleNotifications}
               style={notificationButtonStyle}
             >
-              Notifications
+              {subscribedToNotifications ? 'Unsubscribe' : 'Subscribe'}
             </button>
           </div>
         </div>
