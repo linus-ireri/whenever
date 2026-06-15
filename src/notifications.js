@@ -390,3 +390,64 @@ export async function scheduleEventReminder(event) {
   // If server-side scheduling isn’t available, the local browser reminder still
   // fires while the user keeps the page open.
 }
+async function removeSubscriptionFromServer(userId) {
+  if (typeof window === 'undefined') return
+
+  const unsubscribeUrl = BACKEND_URL
+    ? `${BACKEND_URL.replace(/\/$/, '')}/api/unsubscribe`
+    : '/api/unsubscribe'
+
+  try {
+    const response = await fetch(unsubscribeUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ userId }),
+    })
+
+    if (!response.ok) {
+      const body = await response.text()
+      console.warn('[Notifications] Failed to remove subscription from server. Server returned:', response.status, body)
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.warn('[Notifications] Failed to remove subscription from server:', error)
+    return false
+  }
+}
+
+export async function unsubscribePushNotifications(userId) {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('[Notifications] Cannot unsubscribe: service worker or PushManager not supported in this browser.')
+    return false
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready
+    const subscription = await registration.pushManager.getSubscription()
+
+    if (!subscription) {
+      console.log('[Notifications] No active subscription found.')
+      return false
+    }
+
+    const unsubscribed = await subscription.unsubscribe()
+    if (!unsubscribed) {
+      console.warn('[Notifications] Failed to unsubscribe from browser push manager.')
+      return false
+    }
+
+    console.log('[Notifications] Successfully unsubscribed from browser push manager.')
+
+    // Notify server to mark subscription as inactive
+    await removeSubscriptionFromServer(userId)
+
+    return true
+  } catch (error) {
+    console.error('[Notifications] Failed during unsubscribe process:', error)
+    return false
+  }
+}

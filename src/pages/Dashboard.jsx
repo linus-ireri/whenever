@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { supabase } from '../supabaseClient'
 import { useAuth } from '../context/AuthContext'
 import DashboardAI from './DashboardAI'
@@ -8,6 +8,7 @@ import {
   getNotificationStatus,
   scheduleEventReminder,
   cancelLocalReminder,
+  unsubscribePushNotifications,
 } from '../notifications'
 import { getLocalDateString } from '../dateTime'
 
@@ -126,6 +127,10 @@ export default function Dashboard() {
   const [expandCategories, setExpandCategories] = useState(false)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [showAIAssistant, setShowAIAssistant] = useState(false)
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth(), 1)
+  })
   const [notificationStatus, setNotificationStatus] = useState({
     status: 'unknown',
     message: 'Loading notification status...',
@@ -137,6 +142,66 @@ export default function Dashboard() {
     border: `1px solid ${themeVars.inputBorder}`,
     color: themeVars.pageText,
   }
+
+  const calendarDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+  const eventsByDate = useMemo(() => {
+    return events.reduce((acc, event) => {
+      const key = event.date
+      acc[key] = acc[key] || []
+      acc[key].push(event)
+      return acc
+    }, {})
+  }, [events])
+
+  const calendarDays = useMemo(() => {
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    const firstDayOfMonth = new Date(year, month, 1)
+    const startWeekday = firstDayOfMonth.getDay()
+    const totalDays = new Date(year, month + 1, 0).getDate()
+    const days = []
+    const prevMonthDays = new Date(year, month, 0).getDate()
+
+    for (let i = 0; i < startWeekday; i += 1) {
+      const date = new Date(year, month - 1, prevMonthDays - startWeekday + 1 + i)
+      days.push({
+        date,
+        isCurrentMonth: false,
+        formatted: date.toISOString().slice(0, 10),
+      })
+    }
+
+    for (let day = 1; day <= totalDays; day += 1) {
+      const date = new Date(year, month, day)
+      days.push({
+        date,
+        isCurrentMonth: true,
+        formatted: date.toISOString().slice(0, 10),
+      })
+    }
+
+    const remaining = 7 - (days.length % 7)
+    if (remaining < 7) {
+      for (let i = 1; i <= remaining; i += 1) {
+        const date = new Date(year, month + 1, i)
+        days.push({
+          date,
+          isCurrentMonth: false,
+          formatted: date.toISOString().slice(0, 10),
+        })
+      }
+    }
+
+    return days
+  }, [currentMonth])
+
+  const goToMonth = (offset) => {
+    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
+  }
+
+  const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const todayKey = new Date().toISOString().slice(0, 10)
 
   const placeholderStyle = `
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&display=swap');
@@ -343,6 +408,19 @@ export default function Dashboard() {
       transform: none;
     }
 
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 24px;
+      margin-bottom: 32px;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
     .confirm-btn {
       transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
     }
@@ -387,6 +465,14 @@ export default function Dashboard() {
     if (!user?.id) return
     setNotificationStatus({ ...notificationStatus, message: 'Requesting notification permission...' })
     await requestNotificationPermissionAndSubscribe(user.id)
+    const updated = await getNotificationStatus()
+    setNotificationStatus(updated)
+  }
+
+  async function disableNotifications() {
+    if (!user?.id) return
+    setNotificationStatus({ ...notificationStatus, message: 'Unsubscribing...' })
+    await unsubscribePushNotifications(user.id)
     const updated = await getNotificationStatus()
     setNotificationStatus(updated)
   }
@@ -737,6 +823,47 @@ export default function Dashboard() {
                 Enable notifications
               </button>
             )}
+            {notificationStatus.subscription && (
+              <button
+                type="button"
+                onClick={disableNotifications}
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 12px',
+                  borderRadius: '999px',
+                  border: `1px solid ${themeVars.surfaceBorder}`,
+                  background: theme === 'dark' ? '#2a1212' : '#fde7e5',
+                  color: theme === 'dark' ? '#f07070' : '#c63e3d',
+                  cursor: 'pointer',
+                }}
+              >
+                Unsubscribe
+              </button>
+            )}
+            {!notificationStatus.subscription && notificationStatus.permission === 'granted' && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user?.id) return
+                  setNotificationStatus({ ...notificationStatus, message: 'Subscribing...' })
+                  ensurePushSubscription(user.id).then(async () => {
+                    const updated = await getNotificationStatus()
+                    setNotificationStatus(updated)
+                  })
+                }}
+                style={{
+                  fontSize: '12px',
+                  padding: '8px 12px',
+                  borderRadius: '999px',
+                  border: `1px solid ${themeVars.surfaceBorder}`,
+                  background: themeVars.accent,
+                  color: themeVars.accentText,
+                  cursor: 'pointer',
+                }}
+              >
+                Subscribe
+              </button>
+            )}
             <button
               type="button"
               onClick={refreshNotificationStatus}
@@ -797,24 +924,101 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Events */}
-        {loading && (
-          <p style={{ color: themeVars.muted, fontSize: '14px', fontStyle: 'italic' }}>Loading your events...</p>
-        )}
-
-        {!loading && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '80px 20px' }}>
-            <div style={{ fontSize: '44px', marginBottom: '16px' }}>🗓</div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: '22px', color: themeVars.noEventsText }}>
-              No events here yet
+        {/* Calendar + Events */}
+        <div className="dashboard-grid">
+          <div style={{ background: themeVars.surface, border: `1px solid ${themeVars.surfaceBorder}`, borderRadius: '20px', padding: '22px', minHeight: '460px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
+              <div>
+                <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: themeVars.muted, marginBottom: '6px' }}>
+                  Calendar
+                </div>
+                <div style={{ fontSize: '24px', fontWeight: '600', color: themeVars.cardText }}>
+                  {monthLabel}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button type="button" onClick={() => goToMonth(-1)} style={{ padding: '8px 12px', borderRadius: '10px', border: `1px solid ${themeVars.surfaceBorder}`, background: themeVars.surface, color: themeVars.pageText, cursor: 'pointer' }}>
+                  ←
+                </button>
+                <button type="button" onClick={() => goToMonth(1)} style={{ padding: '8px 12px', borderRadius: '10px', border: `1px solid ${themeVars.surfaceBorder}`, background: themeVars.surface, color: themeVars.pageText, cursor: 'pointer' }}>
+                  →
+                </button>
+              </div>
             </div>
-            <p style={{ color: themeVars.muted, fontSize: '13px', marginTop: '8px' }}>
-              Add one below to get started
-            </p>
-          </div>
-        )}
 
-        {!loading && filtered.map(event => {
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '8px', marginBottom: '10px', color: themeVars.muted, fontSize: '11px', textAlign: 'center' }}>
+              {calendarDayNames.map((name) => (
+                <div key={name} style={{ fontWeight: '700' }}>{name}</div>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '10px' }}>
+              {calendarDays.map((day) => {
+                const dateEvents = eventsByDate[day.formatted] || []
+                return (
+                  <div
+                key={day.formatted}
+                style={{
+                  minHeight: '108px',
+                  background: day.isCurrentMonth ? themeVars.cardBg : (theme === 'dark' ? '#0f0f12' : '#f7f3e8'),
+                  border: `1px solid ${day.formatted === todayKey ? themeVars.accent : themeVars.surfaceBorder}`,
+                  borderRadius: '16px',
+                  padding: '10px',
+                  opacity: day.isCurrentMonth ? 1 : 0.45,
+                  boxShadow: day.formatted === todayKey ? `0 0 0 2px ${themeVars.accent}33` : 'none',
+                }}
+              >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '600', color: themeVars.cardText }}>{day.date.getDate()}</span>
+                      {dateEvents.length > 0 && (
+                        <span style={{ minWidth: '22px', height: '22px', borderRadius: '999px', background: themeVars.accent, color: themeVars.accentText, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
+                          {dateEvents.length}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gap: '6px', fontSize: '12px', color: themeVars.muted }}>
+                      {dateEvents.slice(0, 2).map((event) => (
+                        <div key={event.id} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {event.title}
+                        </div>
+                      ))}
+                      {dateEvents.length > 2 && (
+                        <div style={{ color: themeVars.mutedSoft }}>+{dateEvents.length - 2} more</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: themeVars.muted }}>List view</div>
+                <div style={{ fontSize: '20px', fontWeight: '600', color: themeVars.cardText, marginTop: '8px' }}>
+                  {filtered.length} upcoming events
+                </div>
+              </div>
+            </div>
+
+            {loading && (
+              <p style={{ color: themeVars.muted, fontSize: '14px', fontStyle: 'italic' }}>Loading your events...</p>
+            )}
+
+            {!loading && filtered.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '80px 20px', background: themeVars.cardBg, border: `1px solid ${themeVars.surfaceBorder}`, borderRadius: '18px' }}>
+                <div style={{ fontSize: '44px', marginBottom: '16px' }}>🗓</div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: '22px', color: themeVars.noEventsText }}>
+                  No events here yet
+                </div>
+                <p style={{ color: themeVars.muted, fontSize: '13px', marginTop: '8px' }}>
+                  Add one below to get started
+                </p>
+              </div>
+            )}
+
+            {!loading && filtered.map(event => {
           const cat = CATEGORIES[event.category] || CATEGORIES.personal
           return (
             <div key={event.id} className="event-card">
@@ -951,8 +1155,8 @@ export default function Dashboard() {
             </div>
           )
         })}
-
-        {/* Add Event Form */}
+          </div>
+        </div>
         <AddEventForm onEventAdded={handleEventAdded} userId={user.id} themeVars={themeVars} />
       </main>
 
