@@ -960,12 +960,12 @@ export default function Dashboard() {
                 key={day.formatted}
                 style={{
                   minHeight: '108px',
-                  background: day.isCurrentMonth ? themeVars.cardBg : (theme === 'dark' ? '#0f0f12' : '#f7f3e8'),
-                  border: `1px solid ${day.formatted === todayKey ? themeVars.accent : themeVars.surfaceBorder}`,
+                  background: day.formatted === todayKey ? (theme === 'dark' ? '#171718' : '#fff7df') : (day.isCurrentMonth ? themeVars.cardBg : (theme === 'dark' ? '#0f0f12' : '#f7f3e8')),
+                  border: `2px solid ${day.formatted === todayKey ? themeVars.accent : themeVars.surfaceBorder}`,
                   borderRadius: '16px',
                   padding: '10px',
                   opacity: day.isCurrentMonth ? 1 : 0.45,
-                  boxShadow: day.formatted === todayKey ? `0 0 0 2px ${themeVars.accent}33` : 'none',
+                  boxShadow: day.formatted === todayKey ? `0 0 0 3px ${themeVars.accent}44` : 'none',
                 }}
               >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
