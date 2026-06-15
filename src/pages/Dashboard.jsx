@@ -971,17 +971,21 @@ export default function Dashboard() {
                     style={{
                       minHeight: '108px',
                       background: isSelected
-                        ? (theme === 'dark' ? '#1f1b12' : '#fff4d8')
+                        ? (theme === 'dark' ? '#133e4b' : '#dff7ff')
                         : isToday
                           ? (theme === 'dark' ? '#171718' : '#fff7df')
                           : day.isCurrentMonth
                             ? themeVars.cardBg
                             : (theme === 'dark' ? '#0f0f12' : '#f7f3e8'),
-                      border: `2px solid ${isToday || isSelected ? themeVars.accent : themeVars.surfaceBorder}`,
+                      border: `2px solid ${isSelected ? '#2eaed1' : isToday ? themeVars.accent : themeVars.surfaceBorder}`,
                       borderRadius: '16px',
                       padding: '10px',
                       opacity: day.isCurrentMonth ? 1 : 0.45,
-                      boxShadow: isToday || isSelected ? `0 0 0 4px ${themeVars.accent}44` : 'none',
+                      boxShadow: isSelected
+                        ? `0 0 0 4px ${theme === 'dark' ? '#2eaed133' : '#2eaed144'}`
+                        : isToday
+                          ? `0 0 0 4px ${themeVars.accent}44`
+                          : 'none',
                       cursor: 'pointer',
                       transition: 'transform 0.12s ease, box-shadow 0.12s ease',
                     }}
