@@ -52,15 +52,103 @@ input, select, button {
   min-width: 0;
 }
 
+.calendar-event-title {
+  display: grid;
+  gap: 2px;
+}
+
+.calendar-event-dot {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 780px) {
+  .calendar-event-title {
+    display: none;
+  }
+
+  .calendar-event-dot {
+    display: flex;
+  }
+}
+
 .stats-row {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  position: relative; /* needed for the scroll indicator overlay */
 }
 
 .stats-row > div {
-  flex: 1 1 180px;
-  min-width: 180px;
+  flex: 1 1 120px;
+  min-width: 100px;
+}
+
+/* Mobile: keep stats horizontally laid out; allow horizontal scroll if needed */
+@media (max-width: 640px) {
+  .stats-row {
+    gap: 10px;
+    justify-content: flex-start;
+    flex-wrap: nowrap; /* prevent stacking */
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+  }
+
+  .stats-row > div {
+    flex: 0 0 auto; /* fixed-width items so they stay row-wise */
+    width: 96px;
+    min-width: 96px;
+  }
+
+  /* Make scrollbar more visible on mobile/webkit */
+  .stats-row::-webkit-scrollbar {
+    height: 6px;
+  }
+  .stats-row::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .stats-row::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.16);
+    border-radius: 3px;
+  }
+
+  /* Fading edge indicators (controlled via JS) */
+  .stats-fade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 36px;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    transition: opacity 160ms ease;
+    opacity: 0.95;
+  }
+
+  .stats-fade.right {
+    right: 0;
+    background: linear-gradient(90deg, rgba(245,245,245,0), rgba(0,0,0,0.12));
+  }
+
+  .stats-fade.left {
+    left: 0;
+    background: linear-gradient(270deg, rgba(245,245,245,0), rgba(0,0,0,0.12));
+  }
+
+  .stats-fade::after {
+    content: '›';
+    font-size: 18px;
+    color: rgba(255,255,255,0.65);
+    transform: translateY(-1px);
+  }
+
+  .stats-fade.left::after {
+    content: '‹';
+  }
 }
 
 .event-card-header {
@@ -148,7 +236,7 @@ input, select, button {
   }
 
   .stats-row > div {
-    min-width: 160px;
+    min-width: 120px;
   }
 }
 
@@ -172,9 +260,8 @@ input, select, button {
   .stats-row {
     gap: 10px;
   }
-
   .stats-row > div {
-    min-width: 140px;
+    min-width: 80px;
   }
 
   .responsive-row {
@@ -192,5 +279,9 @@ input, select, button {
   .event-card .icon-btn {
     width: 36px;
     height: 36px;
+  }
+
+  .time-options-row {
+    display: none !important;
   }
 }

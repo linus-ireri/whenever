@@ -133,6 +133,11 @@ export default function Dashboard() {
   })
   const [selectedDate, setSelectedDate] = useState('')
   const addEventSectionRef = useRef(null)
+  const eventsListRef = useRef(null)
+  const statsRowRef = useRef(null)
+  const [statsFadeLeft, setStatsFadeLeft] = useState(false)
+  const [statsFadeRight, setStatsFadeRight] = useState(false)
+  const [statsScrolling, setStatsScrolling] = useState(false)
   const [notificationStatus, setNotificationStatus] = useState({
     status: 'unknown',
     message: 'Loading notification status...',
@@ -143,6 +148,19 @@ export default function Dashboard() {
     background: themeVars.inputBg,
     border: `1px solid ${themeVars.inputBorder}`,
     color: themeVars.pageText,
+  }
+
+  const subscribedToNotifications = !!notificationStatus.subscription
+  const canToggleNotifications = notificationStatus.supported !== false && notificationStatus.permission !== 'denied'
+  const notificationButtonStyle = {
+    fontSize: '12px',
+    padding: '8px 12px',
+    borderRadius: '999px',
+    border: subscribedToNotifications ? `2px solid ${themeVars.accent}` : `1px solid ${themeVars.surfaceBorder}`,
+    background: themeVars.surface,
+    color: themeVars.pageText,
+    cursor: canToggleNotifications ? 'pointer' : 'not-allowed',
+    opacity: canToggleNotifications ? 1 : 0.6,
   }
 
   const calendarDayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -204,7 +222,12 @@ export default function Dashboard() {
 
   const selectCalendarDate = (formattedDate) => {
     setSelectedDate(formattedDate)
-    addEventSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const hasEvents = (eventsByDate[formattedDate] || []).length > 0
+    if (hasEvents) {
+      eventsListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      addEventSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
   }
 
   const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -529,6 +552,44 @@ export default function Dashboard() {
 
   useEffect(() => { fetchEvents() }, [fetchEvents])
 
+  // Stats row scroll/fade handling: show left/right fades depending on scroll position
+  useEffect(() => {
+    const el = statsRowRef.current
+    if (!el) return
+
+    let tidy
+    const updateFades = () => {
+      const { scrollLeft, scrollWidth, clientWidth } = el
+      const atStart = scrollLeft <= 1
+      const atEnd = scrollLeft + clientWidth >= scrollWidth - 1
+      setStatsFadeLeft(!atStart && scrollWidth > clientWidth)
+      setStatsFadeRight(!atEnd && scrollWidth > clientWidth)
+    }
+
+    // On scroll, hide fades while scrolling, then restore after a short debounce
+    const onScroll = () => {
+      setStatsScrolling(true)
+      setStatsFadeLeft(false)
+      setStatsFadeRight(false)
+      clearTimeout(tidy)
+      tidy = setTimeout(() => {
+        setStatsScrolling(false)
+        updateFades()
+      }, 220)
+    }
+
+    // Initialize
+    updateFades()
+    el.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', updateFades)
+
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', updateFades)
+      clearTimeout(tidy)
+    }
+  }, [statsRowRef.current, events.length])
+
   async function deleteEvent(id) {
     const { error } = await supabase.from('events').delete().eq('id', id)
     if (!error) {
@@ -799,7 +860,7 @@ export default function Dashboard() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
             <span style={{
               fontSize: '12px',
               color: themeVars.pageText,
@@ -810,81 +871,17 @@ export default function Dashboard() {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
+              minWidth: 0,
             }}>
               <strong>Notifications:</strong> {notificationStatus.message}
             </span>
-            {notificationStatus.permission !== 'granted' && notificationStatus.supported && (
-              <button
-                type="button"
-                onClick={enableNotifications}
-                style={{
-                  fontSize: '12px',
-                  padding: '8px 12px',
-                  borderRadius: '999px',
-                  border: `1px solid ${themeVars.surfaceBorder}`,
-                  background: themeVars.accent,
-                  color: themeVars.accentText,
-                  cursor: 'pointer',
-                }}
-              >
-                Enable notifications
-              </button>
-            )}
-            {notificationStatus.subscription && (
-              <button
-                type="button"
-                onClick={disableNotifications}
-                style={{
-                  fontSize: '12px',
-                  padding: '8px 12px',
-                  borderRadius: '999px',
-                  border: `1px solid ${themeVars.surfaceBorder}`,
-                  background: theme === 'dark' ? '#2a1212' : '#fde7e5',
-                  color: theme === 'dark' ? '#f07070' : '#c63e3d',
-                  cursor: 'pointer',
-                }}
-              >
-                Unsubscribe
-              </button>
-            )}
-            {!notificationStatus.subscription && notificationStatus.permission === 'granted' && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!user?.id) return
-                  setNotificationStatus({ ...notificationStatus, message: 'Subscribing...' })
-                  ensurePushSubscription(user.id).then(async () => {
-                    const updated = await getNotificationStatus()
-                    setNotificationStatus(updated)
-                  })
-                }}
-                style={{
-                  fontSize: '12px',
-                  padding: '8px 12px',
-                  borderRadius: '999px',
-                  border: `1px solid ${themeVars.surfaceBorder}`,
-                  background: themeVars.accent,
-                  color: themeVars.accentText,
-                  cursor: 'pointer',
-                }}
-              >
-                Subscribe
-              </button>
-            )}
             <button
               type="button"
-              onClick={refreshNotificationStatus}
-              style={{
-                fontSize: '12px',
-                padding: '8px 12px',
-                borderRadius: '999px',
-                border: `1px solid ${themeVars.surfaceBorder}`,
-                background: themeVars.surface,
-                color: themeVars.pageText,
-                cursor: 'pointer',
-              }}
+              onClick={subscribedToNotifications ? disableNotifications : enableNotifications}
+              disabled={!canToggleNotifications}
+              style={notificationButtonStyle}
             >
-              Refresh
+              Notifications
             </button>
           </div>
         </div>
@@ -904,7 +901,7 @@ export default function Dashboard() {
         )}
 
         {/* Stats row */}
-        <div className="stats-row" style={{ marginBottom: '36px' }}>
+        <div className="stats-row" ref={statsRowRef} style={{ marginBottom: '36px' }}>
           {[
             { num: events.filter(e => e.date === getLocalDateString()).length, label: 'Today' },
             { num: events.length, label: 'Total' },
@@ -929,13 +926,20 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+          {/* fading edge indicators (controlled by JS) */}
+          {statsFadeLeft && !statsScrolling && (
+            <div className="stats-fade left" aria-hidden />
+          )}
+          {statsFadeRight && !statsScrolling && (
+            <div className="stats-fade right" aria-hidden />
+          )}
         </div>
 
         {/* Calendar + Events */}
         <div className="dashboard-grid">
-          <div style={{ background: themeVars.surface, border: `1px solid ${themeVars.surfaceBorder}`, borderRadius: '20px', padding: '22px', minHeight: '460px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-              <div>
+          <div style={{ background: themeVars.surface, border: `1px solid ${themeVars.surfaceBorder}`, borderRadius: '20px', padding: '18px', minHeight: '380px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: themeVars.muted, marginBottom: '6px' }}>
                   Calendar
                 </div>
@@ -943,7 +947,7 @@ export default function Dashboard() {
                   {monthLabel}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button type="button" onClick={() => goToMonth(-1)} style={{ padding: '8px 12px', borderRadius: '10px', border: `1px solid ${themeVars.surfaceBorder}`, background: themeVars.surface, color: themeVars.pageText, cursor: 'pointer' }}>
                   ←
                 </button>
@@ -953,68 +957,78 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '8px', marginBottom: '10px', color: themeVars.muted, fontSize: '11px', textAlign: 'center' }}>
-              {calendarDayNames.map((name) => (
-                <div key={name} style={{ fontWeight: '700' }}>{name}</div>
-              ))}
-            </div>
+            <div style={{ width: '100%', paddingBottom: '10px' }}>
+              <div style={{ width: '100%' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '2px', marginBottom: '4px', color: themeVars.muted, fontSize: '8px', textAlign: 'center' }}>
+                  {calendarDayNames.map((name) => (
+                    <div key={name} style={{ fontWeight: '700' }}>{name}</div>
+                  ))}
+                </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '10px' }}>
-              {calendarDays.map((day) => {
-                const dateEvents = eventsByDate[day.formatted] || []
-                const isToday = day.formatted === todayKey
-                const isSelected = day.formatted === selectedDate
-                return (
-                  <div
-                    key={day.formatted}
-                    onClick={() => selectCalendarDate(day.formatted)}
-                    style={{
-                      minHeight: '108px',
-                      background: isSelected
-                        ? (theme === 'dark' ? '#133e4b' : '#dff7ff')
-                        : isToday
-                          ? (theme === 'dark' ? '#171718' : '#fff7df')
-                          : day.isCurrentMonth
-                            ? themeVars.cardBg
-                            : (theme === 'dark' ? '#0f0f12' : '#f7f3e8'),
-                      border: `2px solid ${isSelected ? '#2eaed1' : isToday ? themeVars.accent : themeVars.surfaceBorder}`,
-                      borderRadius: '16px',
-                      padding: '10px',
-                      opacity: day.isCurrentMonth ? 1 : 0.45,
-                      boxShadow: isSelected
-                        ? `0 0 0 4px ${theme === 'dark' ? '#2eaed133' : '#2eaed144'}`
-                        : isToday
-                          ? `0 0 0 4px ${themeVars.accent}44`
-                          : 'none',
-                      cursor: 'pointer',
-                      transition: 'transform 0.12s ease, box-shadow 0.12s ease',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: '600', color: themeVars.cardText }}>{day.date.getDate()}</span>
-                      {dateEvents.length > 0 && (
-                        <span style={{ minWidth: '22px', height: '22px', borderRadius: '999px', background: themeVars.accent, color: themeVars.accentText, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
-                          {dateEvents.length}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ display: 'grid', gap: '6px', fontSize: '12px', color: themeVars.muted }}>
-                      {dateEvents.slice(0, 2).map((event) => (
-                        <div key={event.id} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {event.title}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '4px' }}>
+                  {calendarDays.map((day) => {
+                    const dateEvents = eventsByDate[day.formatted] || []
+                    const isToday = day.formatted === todayKey
+                    const isSelected = day.formatted === selectedDate
+                    return (
+                      <div
+                        key={day.formatted}
+                        onClick={() => selectCalendarDate(day.formatted)}
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          background: isSelected
+                            ? (theme === 'dark' ? '#133e4b' : '#dff7ff')
+                            : isToday
+                              ? (theme === 'dark' ? '#171718' : '#fff7df')
+                              : day.isCurrentMonth
+                                ? themeVars.cardBg
+                                : (theme === 'dark' ? '#0f0f12' : '#f7f3e8'),
+                          border: `2px solid ${isSelected ? '#2eaed1' : isToday ? themeVars.accent : themeVars.surfaceBorder}`,
+                          borderRadius: '10px',
+                          padding: '4px',
+                          minHeight: '48px',
+                          opacity: day.isCurrentMonth ? 1 : 0.45,
+                          boxShadow: isSelected
+                            ? `0 0 0 4px ${theme === 'dark' ? '#2eaed133' : '#2eaed144'}`
+                            : isToday
+                              ? `0 0 0 4px ${themeVars.accent}44`
+                              : 'none',
+                          cursor: 'pointer',
+                          transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '11px', fontWeight: '600', color: themeVars.cardText }}>{day.date.getDate()}</span>
                         </div>
-                      ))}
-                      {dateEvents.length > 2 && (
-                        <div style={{ color: themeVars.mutedSoft }}>+{dateEvents.length - 2} more</div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+                        <div className="calendar-event-title" style={{ color: themeVars.muted, fontSize: '8px' }}>
+                          {dateEvents.slice(0, 1).map((event) => (
+                            <div key={event.id} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {event.title}
+                            </div>
+                          ))}
+                          {dateEvents.length > 1 && (
+                            <div style={{ color: themeVars.mutedSoft }}>+{dateEvents.length - 1} more</div>
+                          )}
+                        </div>
+                        <div className="calendar-event-dot" style={{ color: themeVars.muted, fontSize: '8px' }}>
+                          {dateEvents.length > 0 && (
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: themeVars.accent, display: 'inline-block' }} />
+                          )}
+                          {dateEvents.length > 1 && (
+                            <span style={{ color: themeVars.mutedSoft }}>+{dateEvents.length - 1}</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div ref={eventsListRef} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: '16px' }}>
               <div>
                 <div style={{ fontSize: '12px', letterSpacing: '0.18em', textTransform: 'uppercase', color: themeVars.muted }}>List view</div>
@@ -1285,6 +1299,8 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
   const [isTimeFocused, setIsTimeFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const timeInputRef = useRef(null)
+  const timeOptions = ['09:00', '12:00', '15:00', '18:00']
 
   useEffect(() => {
     if (initialDate) {
@@ -1454,8 +1470,6 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
                   setDateDraft(e.target.value)
                   setDate('')
                 }}
-                onFocus={(e) => e.target.showPicker?.()}
-                onClick={(e) => e.target.showPicker?.()}
                 required
                 style={fieldStyle}
               />
@@ -1491,6 +1505,7 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
             <label style={labelStyle}>Time</label>
             <div style={{ position: 'relative' }}>
               <input
+                ref={timeInputRef}
                 type="time"
                 className={!timeDraft && !isTimeFocused ? 'time-input-empty' : ''}
                 value={timeDraft}
@@ -1498,12 +1513,8 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
                   setTimeDraft(e.target.value)
                   setTime('')
                 }}
-                onFocus={(e) => {
-                  setIsTimeFocused(true)
-                  e.target.showPicker?.()
-                }}
+                onFocus={() => setIsTimeFocused(true)}
                 onBlur={() => setIsTimeFocused(false)}
-                onClick={(e) => e.target.showPicker?.()}
                 required
                 style={fieldStyle}
               />
@@ -1521,6 +1532,50 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
                   09:00 AM
                 </span>
               )}
+            </div>
+            <div className="time-options-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '8px', marginTop: '10px' }}>
+              {timeOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => {
+                    setTimeDraft(option)
+                    setTime('')
+                    setIsTimeFocused(false)
+                  }}
+                  style={{
+                    padding: '8px 10px',
+                    borderRadius: '10px',
+                    border: `1px solid ${themeVars.surfaceBorder}`,
+                    background: timeDraft === option ? themeVars.accent : themeVars.surface,
+                    color: timeDraft === option ? themeVars.accentText : themeVars.pageText,
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  {formatTime(option)}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setTimeDraft('')
+                  setTime('')
+                  setIsTimeFocused(true)
+                  timeInputRef.current?.focus()
+                }}
+                style={{
+                  padding: '8px 10px',
+                  borderRadius: '10px',
+                  border: `1px solid ${themeVars.surfaceBorder}`,
+                  background: themeVars.filterActive,
+                  color: themeVars.pageText,
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                Custom
+              </button>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
