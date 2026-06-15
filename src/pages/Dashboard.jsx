@@ -131,6 +131,8 @@ export default function Dashboard() {
     const now = new Date()
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
+  const [selectedDate, setSelectedDate] = useState('')
+  const addEventSectionRef = useRef(null)
   const [notificationStatus, setNotificationStatus] = useState({
     status: 'unknown',
     message: 'Loading notification status...',
@@ -198,6 +200,11 @@ export default function Dashboard() {
 
   const goToMonth = (offset) => {
     setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1))
+  }
+
+  const selectCalendarDate = (formattedDate) => {
+    setSelectedDate(formattedDate)
+    addEventSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const monthLabel = currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -955,19 +962,30 @@ export default function Dashboard() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '10px' }}>
               {calendarDays.map((day) => {
                 const dateEvents = eventsByDate[day.formatted] || []
+                const isToday = day.formatted === todayKey
+                const isSelected = day.formatted === selectedDate
                 return (
                   <div
-                key={day.formatted}
-                style={{
-                  minHeight: '108px',
-                  background: day.formatted === todayKey ? (theme === 'dark' ? '#171718' : '#fff7df') : (day.isCurrentMonth ? themeVars.cardBg : (theme === 'dark' ? '#0f0f12' : '#f7f3e8')),
-                  border: `2px solid ${day.formatted === todayKey ? themeVars.accent : themeVars.surfaceBorder}`,
-                  borderRadius: '16px',
-                  padding: '10px',
-                  opacity: day.isCurrentMonth ? 1 : 0.45,
-                  boxShadow: day.formatted === todayKey ? `0 0 0 3px ${themeVars.accent}44` : 'none',
-                }}
-              >
+                    key={day.formatted}
+                    onClick={() => selectCalendarDate(day.formatted)}
+                    style={{
+                      minHeight: '108px',
+                      background: isSelected
+                        ? (theme === 'dark' ? '#1f1b12' : '#fff4d8')
+                        : isToday
+                          ? (theme === 'dark' ? '#171718' : '#fff7df')
+                          : day.isCurrentMonth
+                            ? themeVars.cardBg
+                            : (theme === 'dark' ? '#0f0f12' : '#f7f3e8'),
+                      border: `2px solid ${isToday || isSelected ? themeVars.accent : themeVars.surfaceBorder}`,
+                      borderRadius: '16px',
+                      padding: '10px',
+                      opacity: day.isCurrentMonth ? 1 : 0.45,
+                      boxShadow: isToday || isSelected ? `0 0 0 4px ${themeVars.accent}44` : 'none',
+                      cursor: 'pointer',
+                      transition: 'transform 0.12s ease, box-shadow 0.12s ease',
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                       <span style={{ fontSize: '13px', fontWeight: '600', color: themeVars.cardText }}>{day.date.getDate()}</span>
                       {dateEvents.length > 0 && (
@@ -1157,7 +1175,13 @@ export default function Dashboard() {
         })}
           </div>
         </div>
-        <AddEventForm onEventAdded={handleEventAdded} userId={user.id} themeVars={themeVars} />
+        <AddEventForm
+          onEventAdded={handleEventAdded}
+          userId={user.id}
+          themeVars={themeVars}
+          initialDate={selectedDate}
+          formRef={addEventSectionRef}
+        />
       </main>
 
       <DashboardAI
@@ -1247,7 +1271,7 @@ export default function Dashboard() {
   )
 }
 
-function AddEventForm({ onEventAdded, userId, themeVars }) {
+function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef }) {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('')
   const [date, setDate] = useState('')
@@ -1257,6 +1281,13 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
   const [isTimeFocused, setIsTimeFocused] = useState(false)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    if (initialDate) {
+      setDateDraft(initialDate)
+      setDate(initialDate)
+    }
+  }, [initialDate])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -1347,7 +1378,7 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
   })
 
   return (
-    <div className="add-event-section" style={{
+    <div ref={formRef} className="add-event-section" style={{
       marginTop: '48px',
       borderTop: `1px solid ${themeVars.surfaceBorder}`,
       paddingTop: '36px'
@@ -1361,6 +1392,20 @@ function AddEventForm({ onEventAdded, userId, themeVars }) {
       }}>
         Add an event
       </h2>
+
+      {initialDate && (
+        <div style={{
+          marginBottom: '18px',
+          color: themeVars.pageText,
+          background: themeVars.surface,
+          border: `1px solid ${themeVars.accent}`,
+          borderRadius: '12px',
+          padding: '12px 16px',
+          fontSize: '13px'
+        }}>
+          Selected date: <strong>{initialDate}</strong> — click a calendar day to update.
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '14px' }}>
