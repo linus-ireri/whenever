@@ -32,6 +32,7 @@ export default function ForgotPassword() {
     setLoading(false)
   }
 
+  
   return (
     <div style={{
       minHeight: '100vh',
