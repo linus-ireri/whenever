@@ -1310,6 +1310,12 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
     }
   }, [initialDate])
 
+  useEffect(() => {
+    if (!message) return
+    const timeout = window.setTimeout(() => setMessage(''), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [message])
+
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
@@ -1317,6 +1323,13 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
 
     if (!date || !time) {
       setMessage('Please select a full date and confirm the time with OK.')
+      setLoading(false)
+      return
+    }
+
+    const selectedDateTime = new Date(`${date}T${time}`)
+    if (Number.isNaN(selectedDateTime.getTime()) || selectedDateTime <= new Date()) {
+      setMessage('Please choose a future date and time. Past events cannot be scheduled.')
       setLoading(false)
       return
     }
@@ -1620,14 +1633,27 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
       </form>
 
       {message && (
-        <p style={{
-          marginTop: '14px',
-          fontSize: '13px',
-          color: message.includes('wrong') ? '#f07070' : themeVars.actionBg,
-          fontStyle: 'italic'
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 999,
+          minWidth: '280px',
+          maxWidth: '90vw',
+          padding: '14px 18px',
+          borderRadius: '14px',
+          boxShadow: '0 16px 40px rgba(0,0,0,0.16)',
+          background: themeVars.surface,
+          border: `1px solid ${themeVars.surfaceBorder}`,
+          color: message.includes('wrong') ? '#f07070' : themeVars.pageText,
+          fontSize: '14px',
+          fontStyle: 'italic',
+          textAlign: 'center',
+          pointerEvents: 'auto'
         }}>
           {message.includes('wrong') ? '✕ ' : '✓ '}{message}
-        </p>
+        </div>
       )}
     </div>
   )
