@@ -181,7 +181,7 @@ const isConfirmation = (text) => {
   return /^(yes|yeah|yep|yup|save it|add it|schedule it|confirm|go ahead|please save|do it)$/.test(normalized)
 }
 
-export default function DashboardAI({ visible, onClose, events, setEvents, userId, themeVars, refreshEvents }) {
+export default function DashboardAI({ visible, onClose, events, setEvents, userId, displayName, themeVars, refreshEvents }) {
   const [aiInput, setAiInput] = useState('')
   const [aiConversation, setAiConversation] = useState([])
   const [chatSessions, setChatSessions] = useState([])
@@ -502,6 +502,8 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
 
       const systemPrompt = `You are a friendly AI scheduling assistant.
 
+    The user's display name / nickname is: ${displayName || 'friend'}. When greeting or addressing the user, prefer using this nickname.
+
     CURRENT TIME (use this for all date/time reasoning):
     - User local: ${localWeekday}, ${localDate} at ${localTime} (${timezone})
     - GMT/UTC: ${gmtDate} at ${gmtTime}
@@ -547,9 +549,26 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
           { role: 'assistant', content: msg.ai },
         ])
 
+      // Determine whether to greet by nickname: first message in this chat
+      // or the last message was more than 24 hours ago.
+      let needGreet = false
+      if (!aiConversation || !aiConversation.length) {
+        needGreet = true
+      } else {
+        const last = aiConversation[aiConversation.length - 1]
+        const lastTs = last?.aiTimestamp || last?.userTimestamp
+        if (lastTs) {
+          const ageMs = Date.now() - new Date(lastTs).getTime()
+          if (ageMs > 24 * 60 * 60 * 1000) needGreet = true
+        }
+      }
+
       const messages = [
         { role: 'system', content: systemPrompt },
         ...historyMessages,
+        // If this is a fresh or long-idle chat, instruct the assistant to greet
+        // the user briefly using their nickname before handling the user's input.
+        ...(needGreet ? [{ role: 'assistant', content: `Greet the user briefly using their display name: ${displayName || 'friend'}.` }] : []),
         { role: 'user', content: userInput },
       ]
 

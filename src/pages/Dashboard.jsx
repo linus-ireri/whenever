@@ -1393,6 +1393,7 @@ export default function Dashboard() {
         events={events}
         setEvents={setEvents}
         userId={user.id}
+        displayName={displayName}
         themeVars={themeVars}
         refreshEvents={() => fetchEvents({ silent: true })}
       />
