@@ -110,8 +110,9 @@ function saveLocalReminders(reminders) {
   localStorage.setItem(LOCAL_REMINDERS_KEY, JSON.stringify(reminders))
 }
 
-function getReminderId(event) {
-  return event.id || `${event.date}-${event.time}-${event.title}`
+function getReminderId(event, offsetMinutes) {
+  const base = event.id || `${event.date}-${event.time}-${event.title}`
+  return typeof offsetMinutes === 'number' ? `${base}::${offsetMinutes}` : base
 }
 
 function scheduleReminderTimer(reminder) {
@@ -129,7 +130,7 @@ function scheduleReminderTimer(reminder) {
   localReminderTimers[reminder.id] = window.setTimeout(async () => {
     try {
       const registration = await navigator.serviceWorker.ready
-      const payload = makeNotificationPayload(reminder.event)
+      const payload = makeNotificationPayload(reminder.event, reminder.offset ?? null)
       registration.showNotification(payload.title, {
         body: payload.body,
         icon: payload.icon,
@@ -148,11 +149,15 @@ function scheduleReminderTimer(reminder) {
 
 function removeLocalReminder(id) {
   if (typeof window === 'undefined') return
-  const reminders = loadLocalReminders().filter(r => r.id !== id)
-  saveLocalReminders(reminders)
-  if (localReminderTimers[id]) {
-    clearTimeout(localReminderTimers[id])
-    delete localReminderTimers[id]
+  const reminders = loadLocalReminders()
+  const toRemove = reminders.filter(r => r.id === id || r.event?.id === id || getReminderId(r.event) === id)
+  const remaining = reminders.filter(r => !toRemove.includes(r))
+  saveLocalReminders(remaining)
+  for (const rem of toRemove) {
+    if (localReminderTimers[rem.id]) {
+      clearTimeout(localReminderTimers[rem.id])
+      delete localReminderTimers[rem.id]
+    }
   }
 }
 
@@ -210,10 +215,14 @@ function formatEventDateTime(dateStr, timeStr) {
   })
 }
 
-function makeNotificationPayload(event) {
+
+
+function makeNotificationPayload(event, offsetMinutes) {
+  const minutes = typeof offsetMinutes === 'number' ? offsetMinutes : (event.notify_before ?? 15)
+  const bodyText = minutes > 0 ? `${minutes} minutes away.` : 'now.'
   return {
     title: `Upcoming: ${event.title || 'Event'}`,
-    body: `${formatEventDateTime(event.date, event.time)} — ${event.notify_before ?? 15} minutes away.`,
+    body: `${formatEventDateTime(event.date, event.time)} — ${bodyText}`,
     icon: '/icons.svg',
     data: {
       url: `/?eventId=${event.id || ''}`,
@@ -225,22 +234,23 @@ function makeNotificationPayload(event) {
       { action: 'confirm', title: 'Confirm' },
       { action: 'cancel', title: 'Cancel' },
     ],
-    tag: event.id || `${event.date}-${event.time}-${event.title}`,
+    tag: typeof offsetMinutes === 'number' ? `${event.id || `${event.date}-${event.time}-${event.title}`}::${offsetMinutes}` : (event.id || `${event.date}-${event.time}-${event.title}`),
     renotify: true,
   }
 }
 
-function scheduleLocalReminder(event, reminderAt) {
+function scheduleLocalReminder(event, reminderAt, offsetMinutes) {
   if (typeof window === 'undefined') return
-  const id = getReminderId(event)
+  const id = getReminderId(event, offsetMinutes)
   const reminders = loadLocalReminders().filter(r => r.id !== id)
-  const reminder = { id, event, reminderAt }
+  const reminder = { id, event, reminderAt, offset: typeof offsetMinutes === 'number' ? offsetMinutes : null }
   reminders.push(reminder)
   saveLocalReminders(reminders)
   scheduleReminderTimer(reminder)
 }
 
 export function cancelLocalReminder(eventId) {
+  // Support cancelling either a specific reminder id or all reminders for an event id
   removeLocalReminder(eventId)
 }
 
@@ -358,32 +368,38 @@ export async function scheduleEventReminder(event) {
 
   const permission = await requestNotificationPermission()
   const eventDate = new Date(`${event.date}T${event.time}`)
-  const reminderDate = new Date(eventDate.getTime() - ((Number(event.notify_before) || 15) * 60_000))
 
-  if (reminderDate <= new Date()) {
-    console.warn('[Notifications] Reminder time is already in the past for event:', event.title)
-    return
-  }
+  const offsets = Array.from(new Set([Number(event.notify_before) || 15, 5, 0].map(n => Number(n)).filter(n => !Number.isNaN(n) && n >= 0)))
 
-  if (permission === 'granted') {
-    scheduleLocalReminder(event, reminderDate.toISOString())
-  } else {
-    console.warn('[Notifications] Notification permission not granted. Local reminder will not be scheduled.')
-  }
+  const now = Date.now()
 
-  if (SCHEDULER_API_URL) {
-    try {
-      await fetch(SCHEDULER_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ event, reminderAt: reminderDate.toISOString(), type: 'event-reminder' }),
-      })
-      console.log('[Notifications] Scheduled event reminder via server-side scheduler')
-      return
-    } catch (error) {
-      console.warn('[Notifications] Failed to schedule via QStash endpoint:', error)
+  for (const offset of offsets) {
+    const reminderDate = new Date(eventDate.getTime() - (offset * 60_000))
+    if (reminderDate.getTime() <= now) {
+      console.warn('[Notifications] Skipping reminder (in the past) for event:', event.title, 'offset:', offset)
+      continue
+    }
+
+    if (permission === 'granted') {
+      scheduleLocalReminder(event, reminderDate.toISOString(), offset)
+    } else {
+      console.warn('[Notifications] Notification permission not granted. Local reminder will not be scheduled for offset', offset)
+    }
+
+    if (SCHEDULER_API_URL) {
+      try {
+        const eventClone = { ...event, reminder_offset: offset }
+        await fetch(SCHEDULER_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ event: eventClone, reminderAt: reminderDate.toISOString(), type: 'event-reminder' }),
+        })
+        console.log('[Notifications] Scheduled event reminder via server-side scheduler for offset', offset)
+      } catch (error) {
+        console.warn('[Notifications] Failed to schedule via QStash endpoint for offset', offset, error)
+      }
     }
   }
 

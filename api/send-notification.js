@@ -40,15 +40,17 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true, sent: 0 })
     }
 
+    const minutes = event.reminder_offset ?? event.notify_before ?? 15
+    const bodyTime = new Date(`${event.date}T${event.time}`).toLocaleString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
     const payload = {
       title: `Upcoming: ${event.title || 'Event'}`,
-      body: `${new Date(`${event.date}T${event.time}`).toLocaleString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })} — ${event.notify_before ?? 15} minutes away.`,
+      body: `${bodyTime} — ${minutes > 0 ? `${minutes} minutes away.` : 'now.'}`,
       data: {
         url: `/?eventId=${event.id || ''}`,
         eventId: event.id,
