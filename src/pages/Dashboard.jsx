@@ -132,9 +132,15 @@ export default function Dashboard() {
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
   const [selectedDate, setSelectedDate] = useState('')
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false)
+  const [nicknameInput, setNicknameInput] = useState('')
+  const [editingNickname, setEditingNickname] = useState(false)
+  const [settingsMessage, setSettingsMessage] = useState('')
+  const [savingNickname, setSavingNickname] = useState(false)
   const addEventSectionRef = useRef(null)
   const eventsListRef = useRef(null)
   const statsRowRef = useRef(null)
+  const settingsRef = useRef(null)
   const [statsFadeLeft, setStatsFadeLeft] = useState(false)
   const [statsFadeRight, setStatsFadeRight] = useState(false)
   const [statsScrolling, setStatsScrolling] = useState(false)
@@ -173,6 +179,16 @@ export default function Dashboard() {
       return acc
     }, {})
   }, [events])
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+        setShowSettingsMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear()
@@ -674,6 +690,10 @@ export default function Dashboard() {
     user.email?.split('@')[0] ||
     'friend'
 
+  useEffect(() => {
+    setNicknameInput(displayName || '')
+  }, [displayName])
+
   return (
     <div className="dashboard-root" style={{ minHeight: '100vh', background: themeVars.pageBg, color: themeVars.pageText }}>
       <style>{placeholderStyle}</style>
@@ -692,53 +712,212 @@ export default function Dashboard() {
         overflowY: 'auto',
         flexShrink: 0
       }}>
-        <div className="sidebar-top-row" style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: '12px',
-          marginBottom: '18px'
-        }}>
-          <div>
-            <div style={{
-              fontFamily: 'Instrument Serif, serif',
-              fontSize: '26px',
-              padding: '0 8px',
-              marginBottom: '4px'
-            }}>
-              when<span style={{ color: themeVars.accent, fontStyle: 'italic' }}>ever</span>
-            </div>
-            <div style={{
-              fontSize: '11px', color: themeVars.muted, padding: '0 8px',
-              letterSpacing: '0.1em', textTransform: 'uppercase'
-            }}>
-              AI Scheduler
-            </div>
-          </div>
-          <button
-            className="filter-btn sidebar-mobile-logout"
-            onClick={confirmLogout}
-          >
-            Log out
-          </button>
-        </div>
-        <button
-          className="filter-btn theme-switch-btn"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          style={{
-            marginBottom: '18px',
-            justifyContent: 'center',
-            background: themeVars.accent,
-            color: themeVars.accentText,
-            fontWeight: '600',
-            border: `2px solid ${themeVars.accent}`,
-            padding: '12px 16px',
-            fontSize: '13px',
-            transition: 'all 0.3s'
+        <div
+          ref={settingsRef}
+          onMouseEnter={() => {
+            setShowSettingsMenu(true)
+            setSettingsMessage('')
           }}
+          onMouseLeave={() => setShowSettingsMenu(false)}
         >
-          {theme === 'dark' ? '☀️ Switch to Light' : '🌙 Switch to Dark'}
-        </button>
+          <div className="sidebar-top-row" style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '12px',
+            marginBottom: '18px'
+          }}>
+            <div>
+              <div style={{
+                fontFamily: 'Instrument Serif, serif',
+                fontSize: '26px',
+                padding: '0 8px',
+                marginBottom: '4px'
+              }}>
+                when<span style={{ color: themeVars.accent, fontStyle: 'italic' }}>ever</span>
+              </div>
+              <div style={{
+                fontSize: '11px', color: themeVars.muted, padding: '0 8px',
+                letterSpacing: '0.1em', textTransform: 'uppercase'
+              }}>
+                AI Scheduler
+              </div>
+            </div>
+            <button
+              className="filter-btn sidebar-settings-toggle"
+              onClick={() => {
+                setShowSettingsMenu((prev) => !prev)
+                setSettingsMessage('')
+              }}
+              style={{
+                justifyContent: 'center',
+                padding: '10px 14px',
+                fontWeight: '600'
+              }}
+            >
+              ☰ Settings
+            </button>
+          </div>
+          {showSettingsMenu && (
+            <div style={{
+              background: themeVars.surface,
+              border: `1px solid ${themeVars.surfaceBorder}`,
+              borderRadius: '16px',
+              padding: '16px',
+              marginBottom: '18px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: themeVars.pageText }}>Settings</div>
+            <div style={{ display: 'grid', gap: '8px' }}>
+              <label style={{ fontSize: '11px', color: themeVars.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Nickname</label>
+              {!editingNickname ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ fontSize: '14px', color: themeVars.pageText, fontWeight: 600 }}>{displayName}</div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingNickname(true)}
+                    style={{
+                      padding: '8px 10px',
+                      borderRadius: '10px',
+                      border: `1px solid ${themeVars.surfaceBorder}`,
+                      background: 'transparent',
+                      color: themeVars.pageText,
+                      cursor: 'pointer',
+                      fontSize: '13px'
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    value={nicknameInput}
+                    onChange={(e) => setNicknameInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: `1px solid ${themeVars.surfaceBorder}`,
+                      background: themeVars.inputBg,
+                      color: themeVars.pageText,
+                      fontSize: '14px'
+                    }}
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setSavingNickname(true)
+                        setSettingsMessage('')
+                        const trimmed = nicknameInput.trim()
+                        if (!trimmed) {
+                          setSettingsMessage('Please enter a valid nickname.')
+                          setSavingNickname(false)
+                          return
+                        }
+                        const { error } = await supabase.auth.updateUser({ data: { display_name: trimmed } })
+                        if (error) {
+                          setSettingsMessage('Unable to save nickname. Please try again.')
+                        } else {
+                          setSettingsMessage('Nickname updated.')
+                          setEditingNickname(false)
+                          setShowSettingsMenu(false)
+                        }
+                        setSavingNickname(false)
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        border: 'none',
+                        background: themeVars.accent,
+                        color: themeVars.accentText,
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                        fontSize: '13px'
+                      }}
+                      disabled={savingNickname}
+                    >
+                      {savingNickname ? 'Saving…' : 'Save changes'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingNickname(false)
+                        setNicknameInput(displayName || '')
+                        setSettingsMessage('')
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        border: `1px solid ${themeVars.surfaceBorder}`,
+                        background: themeVars.surface,
+                        color: themeVars.pageText,
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: `1px solid ${themeVars.surfaceBorder}`,
+                background: themeVars.surface,
+                color: themeVars.pageText,
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontSize: '14px'
+              }}
+            >
+              {theme === 'dark' ? '☀️ Switch to Light mode' : '🌙 Switch to Dark mode'}
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: themeVars.muted, marginBottom: '4px' }}>Notifications</div>
+                <div style={{ fontSize: '14px', color: themeVars.pageText }}>{notificationStatus.message}</div>
+              </div>
+              <button
+                type="button"
+                onClick={subscribedToNotifications ? disableNotifications : enableNotifications}
+                disabled={!canToggleNotifications}
+                style={notificationButtonStyle}
+              >
+                {subscribedToNotifications ? 'Disable' : 'Enable'}
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={confirmLogout}
+              style={{
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: '1px solid #f07070',
+                background: '#f07070',
+                color: '#fff',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '13px'
+              }}
+            >
+              Log out
+            </button>
+            {settingsMessage && (
+              <div style={{ color: themeVars.accent, fontSize: '13px' }}>{settingsMessage}</div>
+            )}
+          </div>
+        )}
+
+        </div>
 
         {/* All Events Filter Button */}
         <button
@@ -832,13 +1011,29 @@ export default function Dashboard() {
         )}
 
         <div style={{ marginTop: 'auto', paddingTop: '24px', borderTop: `1px solid ${themeVars.surfaceBorder}` }}>
-          <div className="sidebar-user-email" style={{
-            fontSize: '11px', color: themeVars.muted, padding: '0 8px',
-            marginBottom: '10px', overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-          }}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowSettingsMenu(true)
+              setSettingsMessage('')
+            }}
+            className="sidebar-user-email"
+            style={{
+              width: '100%',
+              textAlign: 'left',
+              fontSize: '11px',
+              color: themeVars.muted,
+              padding: '10px 8px',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
             {user.email}
-          </div>
+          </button>
         </div>
       </aside>
 
@@ -873,30 +1068,6 @@ export default function Dashboard() {
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
-            <span style={{
-              fontSize: '12px',
-              color: themeVars.pageText,
-              background: theme === 'dark' ? '#222' : '#f2f0e6',
-              border: `1px solid ${themeVars.surfaceBorder}`,
-              borderRadius: '999px',
-              padding: '8px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              minWidth: 0,
-            }}>
-              <strong>Notifications:</strong> {notificationStatus.message}
-            </span>
-            <button
-              type="button"
-              onClick={subscribedToNotifications ? disableNotifications : enableNotifications}
-              disabled={!canToggleNotifications}
-              style={notificationButtonStyle}
-            >
-              {subscribedToNotifications ? 'Unsubscribe' : 'Subscribe'}
-            </button>
-          </div>
         </div>
 
 

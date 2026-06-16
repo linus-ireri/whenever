@@ -900,7 +900,7 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
             top: '140px',
             left: 0,
             right: 0,
-            zIndex: 15,
+            zIndex: 30,
           }}
         >
           <button
