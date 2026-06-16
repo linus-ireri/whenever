@@ -517,10 +517,11 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
     5. "whole day", "all day", "entire day" means the user has not given a time — ask for a specific time, do not default to 00:00.
     6. Never explain your reasoning or thought process. Be direct and conversational.
     7. When proposing an event, state it in ONE short sentence: "Got it — [title] on [date] at [time] ([category]). Should I save this?"
-    8. If time is missing, ask for it before proposing. Never propose with "unknown time".
+    8. CRITICAL: You MUST ALWAYS ask for a specific time (HH:MM format) if the user does not explicitly provide one. Never propose an event, never say "unknown time", never skip asking for time. Examples of when to ask: "What time?" or "What time should I schedule this for?" Always get the time BEFORE proposing. A time is REQUIRED for any event proposal.
     9. Never reveal internal JSON or processing to the user.
     10. Never ask "what would you like to schedule?" repeatedly. If the user seems done, just say "Let me know if you need anything else!"
     11. When the user asks how many events they have, what's on their schedule, or anything about existing events, answer ONLY from the "Current events" list below. If it says "none", they have no saved events — do NOT infer events from earlier chat messages.
+    12. CRITICAL: You can ONLY schedule events in the future. Before proposing or saving ANY event, verify it is scheduled for a future date and time. If the user requests a past date, past month, or past time, immediately tell them: "I can only schedule future events. Please choose a date and time in the future." Then ask them for a future date/time. NEVER propose a past event for saving, even if the user asks.
 
     Respond with ONE short natural sentence, then on a new line the JSON object. Nothing else.
 
@@ -570,7 +571,9 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
         }
 
         const savedEvent = await saveEventFromAI(eventToSave)
-        if (savedEvent) {
+        if (savedEvent?.error === 'past') {
+          updateLastMessage('I can only schedule events in the future. Please choose a date and time that hasn\'t passed yet.')
+        } else if (savedEvent) {
           setEvents((prev) => sortEventsByDateTime([...prev.filter((event) => event.id !== savedEvent.id), savedEvent]))
           scheduleEventReminder(savedEvent)
           updateLastMessage(`Done! I've saved ${savedEvent.title} on ${savedEvent.date} at ${savedEvent.time} (${savedEvent.category}).`)
@@ -620,6 +623,13 @@ export default function DashboardAI({ visible, onClose, events, setEvents, userI
 
     const normalizedTime = String(eventData.time || '').trim().slice(0, 5) // keep HH:MM
     const category = eventData.category || 'personal'
+
+    // Validate that event is in the future
+    const selectedDateTime = new Date(`${eventData.date}T${normalizedTime}`)
+    if (Number.isNaN(selectedDateTime.getTime()) || selectedDateTime <= new Date()) {
+      console.error('Event is in the past:', { eventData })
+      return { error: 'past' }
+    }
 
     try {
       const payload = {
