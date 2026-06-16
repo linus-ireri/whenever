@@ -1471,6 +1471,9 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
                   setDateDraft(e.target.value)
                   setDate('')
                 }}
+                min="1900-01-01"
+                max="2100-12-31"
+                step="1"
                 required
                 style={fieldStyle}
               />
