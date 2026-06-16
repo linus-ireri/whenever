@@ -262,11 +262,24 @@ export default function Dashboard() {
       font-style: italic;
     }
 
-    .time-input-empty::-webkit-datetime-edit {
+    .time-input-empty {
+      color: transparent;
+      text-shadow: 0 0 0 transparent;
+      caret-color: transparent;
+    }
+
+    .time-input-empty::-webkit-datetime-edit,
+    .time-input-empty::-webkit-datetime-edit-fields-wrapper,
+    .time-input-empty::-webkit-datetime-edit-single-field,
+    .time-input-empty::-webkit-date-and-time-value {
       color: transparent;
     }
 
-    .time-input-empty::-webkit-date-and-time-value {
+    .time-input-empty::-moz-placeholder,
+    .time-input-empty::-moz-timefield-text,
+    .time-input-empty::-moz-timefield-hour-field,
+    .time-input-empty::-moz-timefield-minute-field,
+    .time-input-empty::-moz-timefield-meridiem-field {
       color: transparent;
     }
 
@@ -1538,7 +1551,12 @@ function AddEventForm({ onEventAdded, userId, themeVars, initialDate, formRef })
                 onFocus={() => setIsTimeFocused(true)}
                 onBlur={() => setIsTimeFocused(false)}
                 required
-                style={fieldStyle}
+                style={{
+                  ...fieldStyle,
+                  color: !timeDraft && !isTimeFocused ? 'transparent' : themeVars.pageText,
+                  textShadow: !timeDraft && !isTimeFocused ? '0 0 0 transparent' : 'none',
+                  caretColor: !timeDraft && !isTimeFocused ? 'transparent' : undefined,
+                }}
               />
               {!timeDraft && !isTimeFocused && (
                 <span style={{
